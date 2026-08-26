@@ -1,0 +1,10 @@
+{
+	"id": "svg-viewer",
+	"name": "SVG Viewer",
+	"version": "0.1.0",
+	"minAppVersion": "1.0.0",
+	"description": "Renders inline SVG code fences as live graphics in Reading View and Live Preview mode.",
+	"author": "Konstantinos Gkilas",
+	"authorUrl": "https://github.com/konstantinosGkilas",
+	"isDesktopOnly": false
+}

@@ -1,0 +1,27 @@
+menu "Emergency gateway configuration"
+
+config EMERGENCY_WIFI_SSID
+    string "Wi-Fi SSID"
+    default ""
+
+config EMERGENCY_WIFI_PASSWORD
+    string "Wi-Fi password"
+    default ""
+
+config EMERGENCY_MQTT_URI
+    string "MQTT broker URI"
+    default "mqtts://mqtt.example.com:8883"
+
+config EMERGENCY_MQTT_USERNAME
+    string "MQTT username"
+    default ""
+
+config EMERGENCY_MQTT_PASSWORD
+    string "MQTT password"
+    default ""
+
+config EMERGENCY_MQTT_TOPIC_PREFIX
+    string "MQTT topic prefix"
+    default "emergency-lights"
+
+endmenu
