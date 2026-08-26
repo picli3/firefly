@@ -1,0 +1,9 @@
+# ESP-IDF generated files
+**/build/
+**/sdkconfig
+**/sdkconfig.old
+**/managed_components/
+
+# Local editor and OS files
+.DS_Store
+*.zip

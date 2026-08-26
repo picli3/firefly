@@ -1,0 +1,37 @@
+menu "Automatic battery tests"
+
+config AUTO_TEST_FIRST_DELAY_MINUTES
+    int "Minutes from gateway boot to first campaign"
+    range 1 10080
+    default 1440
+    help
+        Relative delay until the first automatic campaign. Use a small value
+        during commissioning; without an RTC/NTP source, boot time defines the
+        daily test hour.
+
+config AUTO_TEST_INTERVAL_MINUTES
+    int "Minutes between campaigns"
+    range 30 10080
+    default 1440
+
+config AUTO_TEST_GROUP_SIZE
+    int "Maximum lamps tested simultaneously"
+    range 1 20
+    default 10
+
+config AUTO_TEST_DURATION_SECONDS
+    int "Battery test duration in seconds"
+    range 5 300
+    default 30
+
+config AUTO_TEST_GUARD_SECONDS
+    int "Pause between groups in seconds"
+    range 0 300
+    default 15
+
+config AUTO_TEST_LEAD_SECONDS
+    int "Preparation time before first group"
+    range 5 300
+    default 10
+
+endmenu
