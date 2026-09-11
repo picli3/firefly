@@ -72,10 +72,6 @@
       "diff_pair_dimensions": [],
       "drc_exclusions": [
         [
-          "items_not_allowed|178900000|64200000|92b2c578-a99d-4154-9a98-fd2cc94fc297|00000000-0000-0000-0000-000000000000",
-          ""
-        ],
-        [
           "silk_edge_clearance|172150000|84000000|2e093ae7-2e07-4ea6-9dc8-857c8f93ee35|619c2b6f-9adf-46d9-8084-f5b9b4735d89",
           ""
         ],
