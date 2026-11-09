@@ -1,21 +1,32 @@
-# Lámpara de Emergencia IoT — Plan Resumido, Diagramas & Curva de Descarga SLA
+# Lámpara de Emergencia IoT — Alcance, Arquitectura & Curva de Descarga SLA
 
 > **Tag:** `#proyectos/luces-emergencia` `#obsidian` `#diagramas`  
 > **Origen:** sesión de trabajo con Simón el 2026-08-11  
-> **Estado:** Fase 0 — decisiones de arquitectura  
-> **Stack objetivo:** ESP32-H2 + coordinador H2 + ESP32-S3 Wi-Fi/MQTT + InfluxDB + Grafana
+> **Estado:** Fase 1 — prototipo de hardware y firmware validado en banco; cierre de PCBs pendiente
+> **Alcance actual:** nodo ESP32-H2 + gateway coordinador ESP32-C6 + telemetría Zigbee/CSV persistente
+> **Ruta futura:** gateway ESP32-C6 con Ethernet W5500 y PoE; integración de monitoreo aún no implementada
 
 ---
 
 ## 1. Resumen Ejecutivo del Proyecto
 
-Diseño de un **dongle interno de telemetría** para luminarias de emergencia Opalux 9101-4SMD en Perú. El dongle se conecta al **pack de batería** dentro de la lámpara (sin violar garantía, ver §3) y reporta por **Zigbee 3.0** a un coordinador H2. Un ESP32-S3 recibe las tramas por UART, agrega conectividad Wi-Fi y publica a **MQTT TLS → InfluxDB → Grafana**.
+Diseño de un **nodo interno de telemetría** para luminarias de emergencia Opalux 9101-4SMD en Perú. El nodo se conecta al **pack de batería** dentro de la lámpara y reporta por **Zigbee 3.0** a un gateway basado en ESP32-C6. El gateway registra la telemetría validada en un CSV persistente de la flash y permite descargarla por UART para análisis.
 
-**Caso de uso:** cumplimiento ITSE automatizado, mantenimiento predictivo, dashboard en tiempo real.
+**Caso de uso:** instrumentación de pruebas de batería, diagnóstico de luminarias y base para mantenimiento predictivo. El dashboard, las alertas remotas y la integración con plataformas externas quedan fuera del MVP actual.
 
 **Diferenciador clave:** el dispositivo IoT monitorea variables de batería (V, I, T, SoH) que el sensor AC no puede capturar.
 
-**MVP:** piloto de 1–3 unidades; escalamiento posterior hasta 50 unidades en un local real.
+**MVP actual:** una o más luminarias H2 conectadas a un C6 coordinador, con telemetría Zigbee, pruebas de descarga y almacenamiento CSV. El firmware del C6 contempla hasta 50 nodos y grupos de prueba de hasta 10 luminarias.
+
+### Estado actual y límites del alcance
+
+El proyecto ya no está en la fase de decisiones iniciales. El trabajo se organiza ahora en tres entregables relacionados:
+
+1. **PCB de la lámpara:** nodo ESP32-H2-MINI-1, medición INA226, NTC, detección de presencia de alimentación del controlador, relé de prueba y botón local.
+2. **Firmware de campo y gateway de laboratorio:** `h2-emergency-light` como nodo Zigbee y `c6-zigbee-gateway` como coordinador, receptor y registrador CSV.
+3. **Gateway de producción en desarrollo:** PCB ESP32-C6 + W5500 + PoE. Es una segunda placa y todavía no forma parte de una liberación de fabricación.
+
+El camino `h2-coordinator` + `s3-gateway` + Wi-Fi/MQTT se conserva en el repositorio como alternativa experimental, pero no es la arquitectura de aceptación del MVP vigente. InfluxDB, Grafana, MQTT, SNMP y la operación de una flota en producción son etapas posteriores.
 
 ---
 
@@ -34,18 +45,18 @@ Diseño de un **dongle interno de telemetría** para luminarias de emergencia Op
 
 ---
 
-## 3. Estado del Proyecto — Decisiones de Arquitectura (Fase 0)
+## 3. Estado del Proyecto — Alcance vigente (Fase 1)
 
-| #   | Decisión                                     | Estado              | Recomendación Simón                                            |
-| --- | -------------------------------------------- | ------------------- | -------------------------------------------------------------- |
-| 1   | Alimentación dongle                          | 🟡 **Pendiente OK** | **Dual** (pack + driver con OR-ing Schottky) → telemetría 24/7 |
-| 2   | MCU                                          | ✅ Resuelto          | **ESP32-H2-WROOM-03-H2** (nodo Zigbee; 3 unidades en stock)    |
-| 3   | Coordinador                                  | ✅ Resuelto          | **ESP32-H2 adicional** conectado por UART al ESP32-S3          |
-| 4   | Gateway Wi-Fi                                | ✅ Resuelto          | **ESP32-S3** como puente UART→Wi-Fi→MQTT                       |
-| 5   | Voltaje pack = **6V SLA**                    | ✅ Resuelto          | —                                                              |
-| 6   | Conector = **faston H 4.8mm + adaptador FF** | ✅ Resuelto          | —                                                              |
-| 7   | Firmware                                     | 🟡 **Pendiente OK** | **ESP-IDF puro** (sin Arduino)                                 |
-| 8   | Datos en reposo                              | 🟡 **Pendiente OK** | **On-prem piloto, híbrido producción**                         |
+| # | Decisión / entregable | Estado actual | Alcance confirmado |
+| --- | --- | --- | --- |
+| 1 | Nodo de lámpara | ✅ Implementado | ESP32-H2-MINI-1 en la PCB de la lámpara; INA226, NTC, estado AC y relé de prueba. |
+| 2 | Red de campo | ✅ Implementado | Zigbee 3.0, perfil HA `0x0104`, endpoint 1 y clúster privado `0xFC00`. |
+| 3 | Gateway de laboratorio | ✅ Validado en banco | ESP32-C6 coordinador; recibe telemetría, registra CSV en SPIFFS y descarga por UART0. |
+| 4 | Pruebas de batería | ✅ Validado en banco | Ensayo de 300 s con reporte de muestras, tensión, corriente, potencia, temperatura y flags. Campañas automáticas cerradas por defecto. |
+| 5 | Gateway PoE/Ethernet | 🟡 En desarrollo | PCB separada con C6, W5500 y Si3402B. No liberar para fabricación hasta cerrar los hallazgos P0/P1 de su revisión. |
+| 6 | Wi-Fi/MQTT/InfluxDB/Grafana | ⏸ Diferido | Se mantiene como alternativa futura; no es requisito para validar el MVP actual. |
+| 7 | Firmware | ✅ En implementación activa | ESP-IDF v5.5; proyectos independientes y protocolo compartido en `firmware/common`. |
+| 8 | Fabricación | 🟡 Pendiente de cierre | La PCB de la lámpara necesita sincronización final/paridad y revisión de liberación; la PCB gateway requiere correcciones eléctricas y físicas. |
 
 ### Mediciones reales del pack (multímetro)
 
@@ -57,13 +68,17 @@ Diseño de un **dongle interno de telemetría** para luminarias de emergencia Op
 
 **Conclusión:** el pack DH640 está en **excelente estado**, no sulfatado, listo para integrar el dongle.
 
-### 3.1 Gateway del MVP
+### 3.1 Gateway vigente del MVP
 
-El gateway no usará LuckFox ni Sonoff en la primera versión. Se compondrá de un **ESP32-H2 coordinador** y un **ESP32-S3** disponible en el stock propio de Maykol:
+La arquitectura de aceptación actual es:
 
-`ESP32-H2 coordinador → UART 3.3V → ESP32-S3 → Wi-Fi → MQTT TLS → Kuska-IoT`
+`PCB lámpara ESP32-H2 → Zigbee 3.0 → ESP32-C6 coordinador → CSV persistente → descarga UART0`
 
-El LuckFox Pico Pro queda como alternativa para una futura versión Linux o gateway con almacenamiento y servicios locales. La implementación del coordinador H2 y el protocolo UART deben validarse primero con un enlace de laboratorio.
+El C6 usa canal 15, recibe el payload compartido `emergency_telemetry_t` versión 1 y conserva las columnas de identificación del nodo, tiempo de recepción, tensión, corriente, potencia, temperatura, SoH, flags y uptime. La partición `telemetry` ocupa 2 MiB dentro de la flash de 8 MiB; el archivo se conserva al alcanzar su límite o ante un error de escritura hasta que se solicite un borrado explícito.
+
+La validación de banco del 2026-10-23 comprobó recepción real del H2, incorporación de filas, descarga con CRC32 y conservación de cinco filas después de reiniciar el C6, sin errores de escritura ni pérdidas de cola. El ensayo del 2026-10-24 comprobó una descarga de 300 s con 61 muestras y reporte coherente de estado AC, autoprueba y CRC. Las pruebas de llenado, corte durante escritura y transferencia prolongada siguen pendientes.
+
+La PCB futura de gateway con **ESP32-C6 + W5500 + PoE** no debe confundirse con este gateway de laboratorio. Su objetivo es sustituir la salida UART por red cableada/PoE, pero la revisión actual todavía exige corregir el pad expuesto del Si3402B, resolver la convivencia PoE/USB y cerrar problemas de entrada PoE, potencia, LEDs Ethernet, huellas y DRC.
 
 ---
 
@@ -71,6 +86,11 @@ El LuckFox Pico Pro queda como alternativa para una futura versión Linux o gate
 
 > 📌 Los bloques `mermaid` se renderizan automáticamente en Obsidian (plugin nativo).  
 > Para exportar a PNG/SVG: clic derecho → "Export to PNG" / "Export to SVG".
+>
+> Los diagramas siguientes fueron actualizados para distinguir la arquitectura
+> vigente del MVP de las integraciones futuras. Las curvas y umbrales de §5–§6
+> son referencias de ingeniería para el pack SLA; no sustituyen los límites y
+> flags realmente definidos en el firmware.
 
 ### 4.1 Diagrama Funcional — Arquitectura del Sistema
 
@@ -84,12 +104,10 @@ flowchart TB
     Dongle{{"📡 Nodo IoT<br/>ESP32-H2<br/>Zigbee 3.0"}}
     INA226[("INA226<br/>V + I + P<br/>Shunt externo")]
     NTC[("NTC 10K<br/>Temperatura")]
-    Coord{{"ESP32-H2<br/>Coordinator"}}
-    Gateway[("ESP32-S3<br/>UART + Wi-Fi + MQTT TLS")]
-    MQTT[("MQTT Broker<br/>Mosquitto")]
-    Influx[("InfluxDB<br/>Time-series DB")]
-    Grafana[/"📊 Grafana<br/>Dashboard + Alertas"/]
-    Alerts{{"Alertas<br/>Email · Telegram · Webhook"}}
+    Coord{{"ESP32-C6<br/>Coordinador Zigbee"}}
+    CSV[("CSV persistente<br/>SPIFFS 2 MiB")]
+    UART["UART0<br/>115200 8N1"]
+    Future["Futuro: W5500 + PoE<br/>monitoreo IP"]
     
     AC -->|"220V AC"| Driver
     Driver -->|"Carga flotación 6.8-7.0V"| Pack
@@ -100,21 +118,20 @@ flowchart TB
     Pack -->|"NTC"| NTC
     INA226 -->|"I²C"| Dongle
     NTC -->|"ADC"| Dongle
-    Driver -->|"Driver 12V (backup)"| Dongle
+    Driver -->|"Señal de estado +7.5V"| Dongle
     
     Dongle -->|"Zigbee 3.0<br/>telemetría"| Coord
-    Coord -->|"UART + CRC"| Gateway
-    Gateway -->|"MQTT TLS"| MQTT
-    MQTT -->|"Subscribe"| Influx
-    Influx -->|"Query"| Grafana
-    Grafana -->|"Threshold"| Alerts
+    Coord -->|"Filtrar y encolar"| CSV
+    CSV -->|"Descargar con CRC32"| UART
+    Coord -.->|"Etapa posterior"| Future
     
     style Pack fill:#f9c,stroke:#333
     style Dongle fill:#bbf,stroke:#333
-    style Grafana fill:#bfb,stroke:#333
+    style CSV fill:#bfb,stroke:#333
+    style Future fill:#ddd,stroke:#777
 ```
 
-### 4.2 Diagrama de Secuencia — Operación Normal + Emergencia
+### 4.2 Diagrama de Secuencia — Operación, prueba y registro vigente
 
 ```mermaid
 sequenceDiagram
@@ -126,58 +143,49 @@ sequenceDiagram
     participant DG as 📡 Nodo ESP32-H2
     participant INA as INA226
     participant NTC as Sensor Temp
-    participant COORD as Coordinador ESP32-H2
-    participant Gateway as Gateway ESP32-S3
-    participant MQTT as Broker MQTT
-    participant DB as InfluxDB
-    participant G as 📊 Grafana
+    participant C6 as Coordinador ESP32-C6
+    participant CSV as CSV persistente
+    participant UART as UART0
     
     Note over AC,DRV: Modo normal (AC presente)
     AC->>DRV: AC 220V
-    DRV->>PK: Carga flotación (6.85V target)
+    DRV->>PK: Carga de mantenimiento
     DRV-.->LED: AC presente, LEDs OFF
     PK-->>INA: V_bornes = 6.85V (midiendo)
     PK-->>NTC: T_pack = 28°C
     INA-->>DG: I²C read (V=6.85V, I=0.05A)
     NTC-->>DG: ADC read (T=28°C)
-    DG->>DG: Sleep + wake cada 60s
+    DG->>DG: Medición y ciclo adaptativo
     
-    loop Reporte cada 60s
-        DG->>COORD: Zigbee report JSON
-        Note right of DG: {vpack:6.85, ipack:0.05,<br/>temp:28, ac:true, soh:100}
-        COORD->>Gateway: UART frame + CRC
-        Gateway->>MQTT: MQTT TLS publish
-        MQTT->>DB: Persistir punto
+    loop Reporte según intervalo del nodo
+        DG->>C6: Comando Zigbee 0x01
+        Note right of DG: emergency_telemetry_t v1
+        C6->>CSV: Encolar y persistir fila válida
     end
     
     Note over AC,PK: ⚠️ CORTE DE AC (emergencia)
     AC--xDRV: AC off
     DRV->>LED: LEDs ON (emergencia)
-    PK-->>LED: Descarga 6.36V → 5.25V
+    PK-->>LED: Descarga bajo carga
     PK-->>INA: V cae progresivamente
-    loop Cada 60s durante emergencia
-        INA-->>DG: V=6.08V, I=0.4A (descarga)
-        DG->>COORD: Reporte (ac_present=false, modo=emergencia)
-        COORD->>MQTT: publish
-        MQTT->>DB: persistir
-        DB->>G: Evaluar umbrales
+    loop Durante la prueba configurada
+        INA-->>DG: V, I, P y temperatura
+        DG->>C6: Telemetría con AC=0 y self_test=1
+        C6->>CSV: Guardar muestra
     end
     
-    Note over PK,DB: Alerta: V < 5.5V
-    PK-->>INA: V=5.45V
-    DB->>G: Threshold violado
-    G->>G: 🔴 Alerta pack sulfatado
-    G-->>MQTT: Trigger alerta
-    Note right of G: Email + Telegram + Webhook
+    Note over C6,CSV: El C6 conserva flags, CRC y estado de almacenamiento
+    C6->>UART: csv status / csv download
+    UART-->>C6: Confirmación y CRC32
     
     Note over AC,PK: ✅ Retorno de AC
     AC->>DRV: AC 220V back
     DRV->>LED: LEDs OFF
     DRV->>PK: Recarga (corriente limitada)
-    PK-->>INA: V recupera hacia 6.85V
+    PK-->>INA: V recupera durante la recarga
 ```
 
-### 4.3 Diagrama de Estados — Lifecycle del Dongle
+### 4.3 Diagrama de Estados — Lifecycle del nodo y registro
 
 ```mermaid
 stateDiagram-v2
@@ -203,41 +211,36 @@ stateDiagram-v2
     }
     
     Conectando_Zigbee --> Standby: Conectado
-    Conectando_Zigbee --> Error: 3 reintentos fallidos
+    Conectando_Zigbee --> Error: fallo de asociación
     
     state "Operacion Normal" as Standby {
         [*] --> Midiendo
-        Midiendo --> Reportando: ciclo 60s
+        Midiendo --> Reportando: intervalo adaptativo
         Reportando --> Sleep_Profundo: tx done
-        Sleep_Profundo --> Midiendo: wake timer
+        Sleep_Profundo --> Midiendo: siguiente ciclo
     }
     
     Standby --> Modo_Emergencia: AC ausente 5s o mas
     
     state "Modo Emergencia" as Modo_Emergencia {
         [*] --> Monitoreo_Descarga
-        Monitoreo_Descarga --> Alerta_Pack_Bajo: V menor 5.5V
-        Monitoreo_Descarga --> Alerta_Temp: T mayor 40C
-        Alerta_Pack_Bajo --> Monitoreo_Descarga: V mayor 5.8V
-        Alerta_Temp --> Monitoreo_Descarga: T menor 38C
+        Monitoreo_Descarga --> Alerta_Pack_Bajo: flag UVLO/umbral
+        Monitoreo_Descarga --> Alerta_Temp: flag de temperatura
+        Alerta_Pack_Bajo --> Monitoreo_Descarga: condición despejada
+        Alerta_Temp --> Monitoreo_Descarga: condición despejada
     }
     
     Modo_Emergencia --> Standby: AC presente 5s o mas
     
-    Standby --> Alerta_Pack_Sulfatado: V menor 5.5V en carga
-    Standby --> Alerta_Temp_Critica: T mayor 40C en carga
+    Standby --> Prueba_Local: botón o agenda Zigbee
+    Prueba_Local --> Standby: reporte de prueba enviado
     
-    Alerta_Pack_Sulfatado --> Standby: condicion despejada
-    Alerta_Temp_Critica --> Standby: condicion despejada
+    Error --> Conectando_Zigbee: reinicio y reintento
     
-    Error --> Conectando_Zigbee: Watchdog reset
-    
-    note right of Standby: Sleep ~10 uA
-    note right of Standby: TX pico ~80 mA
-    note right of Standby: Promedio menor 50 uA
-    note left of Modo_Emergencia: Reporte cada 30s
+    note right of Standby: Telemetría + flags AC/alerta/UVLO
+    note left of Modo_Emergencia: Prueba nominal de 300s
     note left of Inicializando: GPIO + I2C + ADC
-    note right of Error: Watchdog reset 5s
+    note right of Error: Reintento Zigbee
 ```
 
 
@@ -263,25 +266,29 @@ stateDiagram-v2
 
 ### 5.3 Implicación para el firmware
 
-El dongle debe implementar **protección de bajo voltaje** (UVLO):
+Estos valores son la referencia de ingeniería para el pack DH640 y deben
+validarse con la corriente y la carga reales de la luminaria. El firmware actual
+ya los expresa como constantes del nodo H2 y como flags compartidos con el C6;
+no se debe interpretar este documento como una autorización para desconectar la
+carga de la lámpara desde el INA226.
 
 ```c
-// Pseudo-código del firmware (ESP-IDF)
-#define V_CUTOFF          5.25f  // Apagar carga / entrar a sleep profundo
-#define V_ALERTA          5.50f  // Alerta pack sulfatado
-#define V_ATENCION        5.85f  // Aumentar frecuencia de reporte
-#define V_REPOSO_100PCT   6.30f  // Pack sano a 100% SoC
+// Valores actuales en firmware/h2-emergency-light/main/app_config.h
+#define APP_UVLO_VOLTAGE_MV       5250
+#define APP_ALERT_VOLTAGE_MV      5500
+#define APP_ATTENTION_VOLTAGE_MV  5850
+#define APP_SOH_FULL_VOLTAGE_MV   6300
 ```
 
 **Acción del firmware en cada caso:**
 
 | V medida | Estado | Acción |
 |---|---|---|
-| ≥ 6.30 V | Normal | Reporte cada 60 s |
-| 5.85 – 6.30 V | Normal (descargando) | Reporte cada 60 s |
-| 5.50 – 5.85 V | Atención | Reporte cada 30 s + log warning |
-| < 5.50 V en carga | 🔴 Alerta | Reporte cada 10 s + alerta MQTT |
-| < 5.25 V | 🛑 UVLO | Sleep profundo, solo wake para medir |
+| ≥ 6.30 V | Normal | Reporte nominal cada 60 s |
+| 5.85 – 6.30 V | Atención | Reporte cada 30 s |
+| 5.50 – 5.85 V | Atención/descarga | Reporte cada 30 s y log de advertencia |
+| < 5.50 V | 🔴 Alerta | Reporte cada 10 s y flag de alerta |
+| < 5.25 V | 🛑 UVLO | Marcar flag UVLO y evaluar la prueba; la política de apagado debe validarse en hardware |
 
 ---
 
@@ -537,45 +544,61 @@ xAxis:
 
 ---
 
-## 8. Próximos Pasos (Fase 0 → Fase 1 → Fase 2)
+## 8. Próximos pasos y criterios de cierre
 
-### 8.1 Inmediato (esta sesión)
+### 8.1 Trabajo completado
 
-- [ ] **Maykol: validar gateway propio** (ESP32-H2 coordinador / UART / ESP32-S3 Wi-Fi / MQTT TLS).
-- [ ] Actualizar README del proyecto con pack DH640 + faston 4.8mm + umbrales calibrados.
-- [ ] Cerrar Fase 0 formalmente.
+- [x] Definir la PCB de la lámpara alrededor del ESP32-H2-MINI-1, INA226,
+  NTC, relé de prueba, botón y detección de estado de alimentación.
+- [x] Implementar el nodo H2 en ESP-IDF v5.5 con medición, SoH, flags,
+  pruebas locales/programadas, NVS y endpoint Zigbee privado.
+- [x] Implementar el coordinador C6, registro de nodos, recepción Zigbee,
+  campañas configurables y telemetría CSV persistente.
+- [x] Validar en banco recepción H2→C6, descarga UART con CRC32 y persistencia
+  después de reinicio.
+- [x] Documentar la PCB de la lámpara, su pinout, conectores y renders de
+  referencia. El soporte mecánico tiene un modelo FreeCAD y un STEP en
+  `mechanical/`.
 
-### 8.2 Fase 1 — Compras (MCU Zigbee y gateway Wi-Fi disponibles)
+### 8.2 Cierre inmediato de la PCB de la lámpara
 
-| Componente | Proveedor | Precio |
-|---|---|---|
-| ESP32-H2-WROOM-03-H2 para nodo | Stock InvenTree | $0.00 |
-| ESP32-H2 adicional para coordinador | Stock InvenTree | $0.00 |
-| ESP32-S3 para gateway Wi-Fi | Stock propio de Maykol | $0.00 |
-| INA226 breakout (CJMCU-INA226) | AliExpress | $2.50 |
-| Shunt 50 mΩ, ≥0.25 W, 1%, baja TCR | AliExpress / LCSC | $0.30 |
-| NTC 10K encapsulado | AliExpress | $0.50 |
-| HLK-B03 (DC-DC 12V→3.3V) | AliExpress | $1.50 |
-| MT3608 (boost 4-12V→3.3V) | AliExpress | $1.00 |
-| 2× SS24 Schottky (OR-ing) | LCSC | $0.20 |
-| 2× Adaptador faston FF 4.8mm | AliExpress | $0.20 |
-| Cables AWG22 + dupont | Local | $2.00 |
-| Caja ABS 35×30×15mm | Local | $1.00 |
-| **TOTAL incremental estimado** | | **~$9.20** |
+- [ ] Actualizar el PCB desde el esquema y eliminar la única diferencia de
+  paridad pendiente relacionada con `U1.VBAT`/`+3V3`.
+- [ ] Verificar en la netlist y con la hoja de datos la correspondencia física
+  de Q1/BSS138LT1G, K1 y D1; confirmar que K1 conmuta la señal de baja tensión
+  `+7.5V` del controlador y nunca red de 220 VAC.
+- [ ] Repetir ERC y DRC con `--schematic-parity`, revisar las excepciones
+  intencionales del borde de U1 y comprobar nuevamente serigrafía, antena,
+  conectores, rutas Kelvin de R5 e integración mecánica.
+- [ ] Cerrar la BOM con los campos `Part #`, fabricante, precio, descripción y
+  LCSC; conservar la distinción entre el número de parte del fabricante/proveedor
+  de InvenTree y el SKU de compra.
+- [ ] Solo después de lo anterior generar los archivos de fabricación de la
+  PCB de la lámpara.
 
-### 8.3 Fase 2 — Firmware ESP-IDF (en paralelo)
+### 8.3 Cierre de la PCB gateway PoE/Ethernet
 
-- Estructura del repo (`firmware/` en workspace del proyecto).
-- Firmware H2 de lámpara: driver INA226 sobre I²C (lectura V + I + P cada 60 s).
-- Firmware H2 de lámpara: driver NTC sobre ADC (lectura de temperatura con curva Beta).
-- Firmware H2 de lámpara: endpoint Zigbee custom con telemetría.
-- Firmware H2 coordinador: red Zigbee, recepción de reportes y reenvío por UART.
-- Protocolo UART H2 coordinador↔ESP32-S3 con framing, CRC16, ACK, timeout y versionado.
-- Firmware ESP-IDF en ESP32-S3 para validar tramas, convertir a JSON, almacenar buffer local y publicar MQTT TLS.
-- El INA226 se usará en high-side con shunt externo de 50 mΩ. Verificar el valor real del shunt del breakout antes de conectarlo; no asumir que todos los CJMCU montan el mismo valor.
-- ALERT: disponible para umbrales con el INA226 activo; en shutdown del INA226 no hay monitorización continua. Para mínimo consumo, usar conversión single-shot y despertar por RTC/GPIO según la estrategia validada.
-- UVLO (under-voltage lockout) con hysteresis.
-- Reporte JSON cada 60 s con: `device_id`, `vpack`, `ipack`, `power_w`, `temp_pack`, `ac_present`, `soh_pct`, `rssi`.
+- [ ] Corregir el pad expuesto de U5/Si3402B y conectarlo según la hoja de datos.
+- [ ] Resolver la arquitectura de alimentación PoE/USB, retorno común,
+  protección contra corriente inversa y aislamiento requerido.
+- [ ] Corregir la entrada del conector PoE, potencia de R24, margen de C29,
+  huellas de FB6/C34/C35/C31, estabilidad del regulador y polaridad/aislamiento
+  de los LEDs del W5500.
+- [ ] Repetir ERC/DRC, validar los 43 elementos sin conectar y comprobar el
+  conector HY931147C, el cristal, L1 y los conectores con muestras o impresión
+  1:1 antes de fabricar.
+
+### 8.4 Validación de firmware y producto
+
+- [ ] Ejecutar builds desde cada proyecto ESP-IDF afectado y mantener alineados
+  `firmware/common/include/emergency_protocol.h` y `firmware/PROTOCOL.md`.
+- [ ] Completar pruebas de llenado del CSV, borrado confirmado, corte durante
+  escritura y transferencia prolongada con telemetría simultánea.
+- [ ] Medir consumo, alcance Zigbee, temperatura y comportamiento del pack en
+  la luminaria ensamblada; la autonomía y los umbrales finales no se deben
+  inferir únicamente de la curva SLA de este documento.
+- [ ] Diseñar la integración privada con monitoreo IP (W5500/PoE, MQTT, SNMP o
+  servicio equivalente) después de cerrar el gateway físico y sus pruebas.
 
 ---
 
@@ -584,9 +607,9 @@ xAxis:
 - **OPALUX DH640 datasheet** (etiqueta física).
 - **Yuasa NP series technical manual** — curvas de referencia SLA.
 - **IEEE 1188-2005** — *Recommended Practice for Maintenance, Testing, and Replacement of Valve-Regulated Lead-Acid Batteries*.
-- **ESP-IDF Zigbee documentation** — documentación de Espressif para ESP32-H2/802.15.4.
+- **ESP-IDF Zigbee documentation** — documentación de Espressif para ESP32-H2/ESP32-C6/802.15.4.
 - **INA226 datasheet** — Texas Instruments.
-- **ESP-IDF Zigbee SDK** — Espressif; base para implementar el nodo y el coordinador H2.
+- **ESP-IDF Zigbee SDK** — Espressif; base para implementar el nodo H2 y el coordinador C6.
 - **Base legal luces de emergencia Perú** — `investigaciones/2026-08-09-base-legal-luces-emergencia-peru.md`.
 
 ---
@@ -594,17 +617,17 @@ xAxis:
 ## 10. Tags y Links Internos (para Dataview)
 
 ```yaml
-tags: [proyectos/luces-emergencia, hardware/esp32-h2, hardware/esp32-s3, hardware/sla-6v, firmware/esp-idf, obsidian/diagramas]
+tags: [proyectos/luces-emergencia, hardware/esp32-h2, hardware/esp32-c6, hardware/w5500, hardware/poe, hardware/sla-6v, firmware/esp-idf, obsidian/diagramas]
 proyecto: luces-emergencia-iot
-fase: 0
-estado: decisiones-pendientes
+fase: 1
+estado: prototipo-banco-validado; pcbs-pendientes-de-cierre
 created: 2026-08-11
-updated: 2026-08-13
-hardware: [opla-9101-4smd, opalux-dh640, esp32-h2-wroom-03-h2, esp32-s3-gateway, ina226, ntc10k]
+updated: 2026-11-08
+hardware: [opla-9101-4smd, opalux-dh640, esp32-h2-mini-1, esp32-c6, ina226, ntc10k, r5-2mohm, songle-srd-05vdc-sl-c, w5500, si3402b]
 ```
 
 > 💡 **Tip Dataview:** crea un dashboard en tu vault con bloque `dataview` para listar automáticamente todos los proyectos y su estado.
 
 ---
 
-*Documento actualizado por Simón el 2026-08-13. Optimizado para Obsidian con plugins Mermaid + Excalidraw + Charts + SVG Editor.*
+*Documento actualizado por Simón el 2026-11-08. Optimizado para Obsidian con plugins Mermaid + Excalidraw + Charts + SVG Editor.*
