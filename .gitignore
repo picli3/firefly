@@ -7,3 +7,14 @@
 # Local editor and OS files
 .DS_Store
 *.zip
+firmware/c6-zigbee-gateway/tools/*.csv
+*__pycache__*
+emergency-light-gateway-pcb/v*
+emergency-light-pcb/v*
+*REPORTE*
+*.blend
+*.blend1
+*.glb
+/assets/materials/
+*.step
+.obsidian/workspace.json
