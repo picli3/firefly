@@ -78,27 +78,63 @@
       ],
       "drc_exclusions": [
         [
-          "hole_clearance|178265000|135250000|7f204c34-bab5-45c9-a85e-cf3f3b58928d|7a6e9147-f526-4549-846c-94526b54969d",
+          "hole_clearance|160765000|125250000|7f204c34-bab5-45c9-a85e-cf3f3b58928d|7a6e9147-f526-4549-846c-94526b54969d",
           ""
         ],
         [
-          "hole_clearance|181735000|135250000|f806fa2f-36d5-4db0-b77b-d894b5c86d37|eaee2b8b-b0d9-4d48-b2f7-43b88cccd411",
+          "hole_clearance|164235000|125250000|f806fa2f-36d5-4db0-b77b-d894b5c86d37|eaee2b8b-b0d9-4d48-b2f7-43b88cccd411",
           ""
         ],
         [
-          "hole_clearance|192950000|129745000|1fce5603-39ca-4696-8432-d847ea949f57|778272df-5e5f-43f3-8507-812d5046ec2b",
+          "hole_clearance|175450000|120995000|1fce5603-39ca-4696-8432-d847ea949f57|778272df-5e5f-43f3-8507-812d5046ec2b",
           ""
         ],
         [
-          "hole_clearance|192950000|129745000|a0724d8d-cb00-45d4-8f78-9b028334eaf4|778272df-5e5f-43f3-8507-812d5046ec2b",
+          "hole_clearance|175450000|120995000|a0724d8d-cb00-45d4-8f78-9b028334eaf4|778272df-5e5f-43f3-8507-812d5046ec2b",
           ""
         ],
         [
-          "hole_clearance|199050000|129745000|5784bcd2-6098-4a7e-9ba5-bbabd7055f06|8172afdf-d397-4d41-8290-9f56626d20a5",
+          "hole_clearance|181550000|120995000|5784bcd2-6098-4a7e-9ba5-bbabd7055f06|8172afdf-d397-4d41-8290-9f56626d20a5",
           ""
         ],
         [
-          "hole_clearance|199050000|129745000|93c60071-d7ab-4e76-805e-1c25e0956938|8172afdf-d397-4d41-8290-9f56626d20a5",
+          "hole_clearance|181550000|120995000|93c60071-d7ab-4e76-805e-1c25e0956938|8172afdf-d397-4d41-8290-9f56626d20a5",
+          ""
+        ],
+        [
+          "lib_footprint_mismatch|151833000|101360000|99989903-4a2c-4f78-8fd9-6bd656b4b24d|00000000-0000-0000-0000-000000000000",
+          ""
+        ],
+        [
+          "silk_edge_clearance|114810000|127000000|d6e39ecb-a440-4523-8c49-5c8c132b2c6d|b138a94b-8ff0-4b8f-857d-0917cd7ba7b8",
+          ""
+        ],
+        [
+          "silk_edge_clearance|131310000|127000000|d6e39ecb-a440-4523-8c49-5c8c132b2c6d|3080c035-2258-4a48-b2a0-4b54f009f3ca",
+          ""
+        ],
+        [
+          "silk_edge_clearance|145860000|74000000|1cfb619c-8c41-4b6c-8068-c93b11f44047|eece2a02-b869-4243-b611-97ebb834d915",
+          ""
+        ],
+        [
+          "silk_edge_clearance|163860000|74000000|1cfb619c-8c41-4b6c-8068-c93b11f44047|1cf12a70-4be4-433d-b701-afffead17b37",
+          ""
+        ],
+        [
+          "starved_thermal|175300000|120570000|a8d8fcb6-acf4-4783-8c78-f6647da48976|1fce5603-39ca-4696-8432-d847ea949f57|F.Cu",
+          ""
+        ],
+        [
+          "starved_thermal|175300000|120570000|a8d8fcb6-acf4-4783-8c78-f6647da48976|a0724d8d-cb00-45d4-8f78-9b028334eaf4|F.Cu",
+          ""
+        ],
+        [
+          "starved_thermal|181700000|120570000|a8d8fcb6-acf4-4783-8c78-f6647da48976|5784bcd2-6098-4a7e-9ba5-bbabd7055f06|F.Cu",
+          ""
+        ],
+        [
+          "starved_thermal|181700000|120570000|a8d8fcb6-acf4-4783-8c78-f6647da48976|93c60071-d7ab-4e76-805e-1c25e0956938|F.Cu",
           ""
         ]
       ],
@@ -281,7 +317,7 @@
       "internal_id": "",
       "mfg": "",
       "mpn": "",
-      "sch_revision": ""
+      "sch_revision": "${REVISION}"
     },
     "layer_pairs": [],
     "layer_presets": [],
@@ -576,7 +612,7 @@
       "step": "",
       "vrml": ""
     },
-    "page_layout_descr_file": ""
+    "page_layout_descr_file": "kicad-embed://maykolrey.com.kicad_wks"
   },
   "schematic": {
     "annotate_start_num": 0,
@@ -1092,7 +1128,7 @@
     "meta": {
       "version": 1
     },
-    "page_layout_descr_file": "",
+    "page_layout_descr_file": "kicad-embed://maykolrey.com.kicad_wks",
     "plot_directory": "",
     "reuse_designators": true,
     "subpart_first_id": 65,
@@ -1104,7 +1140,7 @@
         "uuid": "06ba4cc5-2dba-4680-86ca-1718359914fb"
       }
     ],
-    "used_designators": "#PWR1-51,C1-39,D1-6,FB1-6,H1-4,J1-3,JP1-2,L1,Q1,R1-31,SW1,TP1-2,U1-5,Y1",
+    "used_designators": "#PWR1-51,C1-39,D1-6,FB1-6,H1-4,J1-4,JP1-2,L1,Q1,R1-31,SW1,TP1-2,U1-5,Y1",
     "variants": []
   },
   "sheets": [
@@ -1121,7 +1157,10 @@
       "PoE"
     ]
   ],
-  "text_variables": {},
+  "text_variables": {
+    "REVISION": "v1.0.0",
+    "TITLE": "FireFly-Gateway"
+  },
   "tuning_profiles": {
     "meta": {
       "version": 0

@@ -5,11 +5,10 @@
 	(uuid "f4aae365-6c70-41da-9253-52b239e8f5e6")
 	(paper "A4")
 	(title_block
-		(title "Ethernet - Audio")
-		(date "2021-02-28")
-		(rev "V0.2.0")
+		(title "${TITLE}")
+		(date "2026-11-05")
+		(rev "${REVISION}")
 		(company "https://maykolrey.com")
-		(comment 1 "PCB profesional")
 	)
 	(lib_symbols
 		(symbol "Device:Jumper_NC_Small"
