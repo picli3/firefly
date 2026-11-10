@@ -5,8 +5,10 @@
 	(uuid "21bd2378-eca3-47cf-af67-8b0c34db7672")
 	(paper "A4")
 	(title_block
-		(date "2026-10-16")
-		(rev "v1.0.0")
+		(title "${TITLE}")
+		(date "2026-11-05")
+		(rev "${REVISION}")
+		(company "https://maykolrey.com")
 	)
 	(lib_symbols
 		(symbol "Connector:TestPoint"
