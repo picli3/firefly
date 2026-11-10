@@ -1,5 +1,10 @@
 # Mediciones tomada con las 2 luces encendidas 
 
+> **Registro historico:** estas mediciones corresponden a un modulo con shunt
+> R010 de 10 mOhm. La PCB actual usa R5 de 2 mOhm y el firmware actual se
+> calibra con 25600; los valores de este documento no deben usarse como
+> referencia de calibracion para la placa actual.
+
 
 ## Medicion con el modulo de corriente
 
