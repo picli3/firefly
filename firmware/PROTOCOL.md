@@ -40,7 +40,7 @@ El comando `0x03` programa una prueba automatica en un nodo concreto:
 | `group_index` | `uint8_t` | Grupo asignado por el coordinador |
 | `test_id` | `uint16_t` | Identificador de campana |
 | `start_delay_s` | `uint32_t` | Retardo relativo antes de abrir el rele |
-| `duration_s` | `uint16_t` | Duracion bajo bateria, 30 s por defecto |
+| `duration_s` | `uint16_t` | Duracion bajo bateria, 300 s en el perfil horario actual del C6 |
 | `reserved` | `uint16_t` | Reservado, cero |
 
 El H2 persiste la agenda en NVS, la consume antes de iniciar y mantiene un timeout
