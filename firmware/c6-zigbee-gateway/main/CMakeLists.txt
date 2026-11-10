@@ -1,3 +1,10 @@
 idf_component_register(SRCS "main.c"
+                            "node_registry.c"
+                            "telemetry_log.c"
+                            "telemetry_csv.c"
+                            "csv_serial.c"
+                            "csv_format.c"
+                            "test_campaign.c"
+                            "zigbee_gateway.c"
                        INCLUDE_DIRS "."
-                       REQUIRES esp_timer nvs_flash)
+                       REQUIRES common esp_timer nvs_flash spiffs esp_partition esp_driver_usb_serial_jtag)
