@@ -1,18 +1,26 @@
 menu "Automatic battery tests"
 
+config AUTO_TEST_ENABLED
+    bool "Enable automatic battery test campaigns"
+    default y
+    help
+        Disable after a bench experiment to keep receiving and storing
+        telemetry without scheduling further battery discharges.
+
 config AUTO_TEST_FIRST_DELAY_MINUTES
     int "Minutes from gateway boot to first campaign"
     range 1 10080
-    default 1440
+    default 1
     help
         Relative delay until the first automatic campaign. Use a small value
         during commissioning; without an RTC/NTP source, boot time defines the
-        daily test hour.
+        first test time. If no node has reported yet, the gateway retries
+        every five seconds until a campaign can start.
 
 config AUTO_TEST_INTERVAL_MINUTES
     int "Minutes between campaigns"
     range 30 10080
-    default 1440
+    default 60
 
 config AUTO_TEST_GROUP_SIZE
     int "Maximum lamps tested simultaneously"
@@ -22,7 +30,7 @@ config AUTO_TEST_GROUP_SIZE
 config AUTO_TEST_DURATION_SECONDS
     int "Battery test duration in seconds"
     range 5 300
-    default 30
+    default 300
 
 config AUTO_TEST_GUARD_SECONDS
     int "Pause between groups in seconds"

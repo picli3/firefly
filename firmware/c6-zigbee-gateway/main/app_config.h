@@ -1,0 +1,9 @@
+#pragma once
+
+#define APP_ZIGBEE_CHANNEL          15
+#define APP_ZIGBEE_CHANNEL_MASK     (1UL << APP_ZIGBEE_CHANNEL)
+#define APP_ZIGBEE_MAX_CHILDREN     50
+#define APP_NETWORK_OPEN_SECONDS    180
+#define APP_MAX_TRACKED_NODES       50
+#define APP_COMMAND_SPACING_MS      50
+#define APP_CAMPAIGN_RETRY_MS       5000
