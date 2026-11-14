@@ -17,4 +17,6 @@ emergency-light-pcb/v*
 *.glb
 /assets/materials/
 *.step
-.obsidian/workspace.json
+*FCBak
+*.bin
+*.gltf

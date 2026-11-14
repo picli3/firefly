@@ -4,24 +4,53 @@
     "type": "split",
     "children": [
       {
-        "id": "896406b264600bc9",
+        "id": "2b7fc34a5177f973",
         "type": "tabs",
         "children": [
           {
-            "id": "1abb6ede7a5608c6",
+            "id": "3a8d49ee3e345fc0",
             "type": "leaf",
             "state": {
               "type": "markdown",
               "state": {
-                "file": "firmware/README.md",
+                "file": "doc/firefly-articulo.md",
+                "mode": "preview",
+                "source": false
+              },
+              "icon": "lucide-file",
+              "title": "firefly-articulo"
+            }
+          },
+          {
+            "id": "365f5b6327b58b9e",
+            "type": "leaf",
+            "state": {
+              "type": "markdown",
+              "state": {
+                "file": "README.md",
                 "mode": "source",
                 "source": false
               },
               "icon": "lucide-file",
               "title": "README"
             }
+          },
+          {
+            "id": "56a288d4f5bc602b",
+            "type": "leaf",
+            "state": {
+              "type": "markdown",
+              "state": {
+                "file": "2026-08-11-plan-luces-emergencia-obsidian.md",
+                "mode": "source",
+                "source": false
+              },
+              "icon": "lucide-file",
+              "title": "2026-08-11-plan-luces-emergencia-obsidian"
+            }
           }
-        ]
+        ],
+        "currentTab": 1
       }
     ],
     "direction": "vertical"
@@ -190,27 +219,43 @@
   },
   "active": "8afbadea03cbd598",
   "lastOpenFiles": [
-    "firmware/h2-emergency-light/build/esp-idf/main/stW3wmwT",
-    "firmware/h2-emergency-light/build/esp-idf/main/stpCsR7B",
-    "firmware/h2-emergency-light/build/esp-idf/main/CMakeFiles/__idf_main.dir/main.c.obj.d",
-    "firmware/h2-emergency-light/build/log/idf_py_stdout_output_1513696",
-    "firmware/h2-emergency-light/build/log/idf_py_stderr_output_1513696",
-    "firmware/s3-gateway/build/esp-idf/main/sthMJHWL",
-    "firmware/s3-gateway/build/esp-idf/main/stIUzIRW",
-    "firmware/h2-emergency-light/build/esp-idf/main/stZ9OouT",
-    "firmware/h2-emergency-light/build/esp-idf/main/stfd9Rcw",
-    "firmware/s3-gateway/build/esp-idf/main/CMakeFiles/__idf_main.dir/main.c.obj.d",
-    "firmware/h2-coordinator/build/log/idf_py_stdout_output_1513069",
+    "emergency-light-gateway-pcb/doc/c6-gateway.blend@",
+    "emergency-light-gateway-pcb/doc/c6-gateway.blend1",
+    "emergency-light-gateway-pcb/doc/2026-11-10_15-50.jpg",
+    "emergency-light-gateway-pcb/doc/2026-11-10_15-49.jpg",
+    "emergency-light-gateway-pcb/doc/c6-gateway.blend",
+    "mechanical/case_firefly_gateway.20261110-150141.FCBak",
+    "mechanical/case_firefly_gateway.FCStd.b62376bc-3537-440b-8eef-6ad170f603f3",
+    "mechanical/case_firefly_gateway.gltf",
+    "mechanical/case_firefly_gateway.bin",
+    "mechanical/case_firefly_gateway.20261110-150108.FCBak",
+    "mechanical/case_firefly_gateway.FCStd.fbbb87a8-0a10-464e-b73f-45adbea73492",
+    "mechanical/case_firefly_gateway.20261110-142605.FCBak",
+    "mechanical/case_firefly_gateway.FCStd.08662e43-12cd-4962-90e6-cd5fe3769aca",
+    "README.md",
+    "doc/firefly-articulo.md",
+    "AGENTS.md",
+    "doc/firefly/autoprueba.svg",
+    "doc/firefly/arquitectura.svg",
+    "doc/firefly/ensayo-bateria.png",
+    "doc/firefly/soporte-freecad.png",
+    "doc/firefly/gateway-reverso.png",
+    "doc/firefly/gateway-frente.png",
+    "firmware/h2-emergency-light/README.md",
+    "emergency-light-pcb/README.md",
+    "emergency-light-pcb/REPORTE_REVISION_CIRCUITO_2026-09-06.md",
+    "doc/grafico_conexion.svg",
+    "emergency-light-pcb/REPORTE_REVISION_CIRCUITO.md",
+    "emergency-light-pcb/REPORTE_REVISION_ACTIVOS_2026-09-07.md",
+    "emergency-light-pcb/REPORTE_COMPONENTES_INVENTREE_LCSC_2026-09-06.md",
+    "firmware/README.md",
     "firmware/PROTOCOL.md",
-    "2026-08-11-plan-luces-emergencia-obsidian.md",
     "firmware/h2-emergency-light/managed_components/espressif__esp-zigbee-lib/README.md",
     "firmware/h2-coordinator/managed_components/espressif__esp-zigbee-lib/README.md",
     "firmware/h2-coordinator/managed_components/espressif__esp-zboss-lib/README.md",
     "firmware/h2-emergency-light/managed_components/espressif__esp-zboss-lib/README.md",
     "firmware/s3-gateway/README.md",
     "firmware/h2-coordinator/README.md",
-    "firmware/h2-emergency-light/README.md",
-    "firmware/README.md",
     "Sin título.canvas",
     "2026-08-13.md"
   ]
