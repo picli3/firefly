@@ -37,6 +37,22 @@ import { trashList, changeTrash } from "./trash.mjs";
 import { requestTest } from "./individual-tests.mjs";
 import { parseDxf } from "./dxf.mjs";
 import { pdfReport } from "./report.mjs";
+// Chart time ranges: window length and aggregation bucket (seconds), ~240-360 points each.
+export const SERIES_RANGES = {
+  "1h": { seconds: 3600, bucket: 15 },
+  "24h": { seconds: 86400, bucket: 300 },
+  "7d": { seconds: 7 * 86400, bucket: 1800 },
+  "28d": { seconds: 28 * 86400, bucket: 7200 },
+  "3m": { seconds: 90 * 86400, bucket: 21600 },
+  "1y": { seconds: 365 * 86400, bucket: 86400 },
+};
+// Fixed whitelist: these names are interpolated into SQL.
+const SERIES_FIELDS = [
+  "voltage_mv",
+  "current_ma",
+  "temperature_centi_c",
+  "power_mw",
+];
 const fail = (code, message) => {
   throw createError({ statusCode: code, statusMessage: message });
 };
@@ -481,6 +497,31 @@ export default defineEventHandler(async (event) => {
       }
       if (method === "GET" && !id)
         return filterLamps(await lamps(), getQuery(event));
+      if (method === "GET" && id && action === "series") {
+        uuid.parse(id);
+        if (!(await lamps()).some((x) => x.id === id))
+          fail(404, "Lámpara no encontrada");
+        const range = z
+          .enum(Object.keys(SERIES_RANGES))
+          .default("24h")
+          .parse(getQuery(event).range);
+        const { seconds, bucket } = SERIES_RANGES[range];
+        const points = await db`
+          SELECT to_timestamp(floor(extract(epoch FROM received_at)/${bucket})*${bucket}) t,
+            count(*)::int n,
+            ${db.unsafe(
+              SERIES_FIELDS.map(
+                (f) =>
+                  `avg((data->>'${f}')::float8) "${f}", min((data->>'${f}')::float8) "${f}_min", max((data->>'${f}')::float8) "${f}_max"`,
+              ).join(","),
+            )}
+          FROM measurements
+          WHERE lamp_id=${id}
+            AND received_at >= now() - make_interval(secs => ${seconds})
+            AND ((data->>'flags')::int & 8) = 8
+          GROUP BY 1 ORDER BY 1`;
+        return { range, seconds, bucket, now: new Date(), points };
+      }
       if (method === "GET" && id) {
         uuid.parse(id);
         const lamp = (await lamps()).find((x) => x.id === id);
