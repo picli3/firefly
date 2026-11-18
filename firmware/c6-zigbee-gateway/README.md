@@ -1,14 +1,19 @@
-# ESP32-C6 - Gateway Zigbee por USB nativo
+# ESP32-C6 - Gateway Zigbee, USB y Ethernet opcional
 
 Forma la red Zigbee de la luminaria, recibe su telemetria y la guarda en un CSV
 persistente en la flash interna. Permite descargarlo por USB Serial/JTAG y
-mantiene los mensajes legibles de diagnostico. No usa Wi-Fi ni MQTT.
+mantiene los mensajes legibles de diagnostico. Puede publicar telemetria por
+Ethernet W5500 y MQTT. No usa Wi-Fi.
 
 ## Estructura del codigo
 
 | Modulo | Responsabilidad |
 |---|---|
 | `main.c` | Inicializacion de NVS y arranque de modulos |
+| `ethernet_mqtt.c/.h` | W5500, DHCP, NTP, TLS, estado y telemetria MQTT |
+| `gateway_settings.c/.h` | Configuracion de red versionada, SHA-256, NVS y defaults |
+| `at_provisioning.c/.h` | Aprovisionamiento AT por fragmentos sin eco de secretos |
+| `remote_config.c/.h` | Configuracion MQTT fragmentada y ACK reales del H2 |
 | `app_config.h` | Limites de red y constantes del gateway |
 | `node_registry.c/.h` | Registro, actualizacion y ordenamiento de nodos |
 | `telemetry_log.c/.h` | Formato legible de telemetria y reportes por USB |
@@ -28,7 +33,7 @@ Los paquetes compartidos con el H2 estan definidos una sola vez en
 - Endpoint `1`.
 - Cluster privado `0xFC00` en rol cliente.
 - Comando de telemetria `0x01`.
-- Payload `emergency_telemetry_t` version 1 descrito en `../PROTOCOL.md`.
+- Telemetria v1 (24 bytes) y v2 (33 bytes) descritas en `../PROTOCOL.md`.
 - Hasta 50 dispositivos hijos.
 - Registro automatico de hasta 50 nodos a partir de su telemetria.
 - Campanas automaticas con grupos de hasta 10 lamparas.
@@ -320,3 +325,260 @@ idf.py -p /dev/ttyACM0 erase-flash flash monitor
 ```
 
 Ese comando borra tambien cualquier configuracion persistente del H2.
+
+## Prototipo W5500 -> MQTT
+
+En `idf.py menuconfig` -> `W5500 Ethernet and MQTT`, habilitar
+`Enable W5500 Ethernet`. Esta opcion queda deshabilitada por defecto para
+los gateways sin modulo. El pinout inicial coincide con el W5500 del esquema:
+
+| W5500 | ESP32-C6 |
+|---|---|
+| SCK | GPIO6 |
+| SI / MOSI | GPIO7 |
+| SO / MISO | GPIO0 |
+| CS | GPIO10 |
+| INT | GPIO18 |
+| RESET | GPIO19 |
+| GND | GND comun |
+| VCC | Segun especificacion de alimentacion del modulo W5500 |
+
+SPI parte de 10 MHz (configurable), con reset externo y una MAC obtenida de la direccion Ethernet
+reservada del C6. Los GPIO12/13 se reservan para USB. Usar cables SPI cortos y
+una alimentacion estable, segun el modulo utilizado.
+
+Con URI vacia se prueba solo Ethernet: conectar el RJ45 a una red con DHCP y
+buscar `Ethernet link up` y `Ethernet DHCP IP=...` en la consola USB.
+El W5500 negocia automaticamente velocidad y duplex con el switch (10/100 Mbps).
+Se utiliza el controlador W5500 MAC RAW integrado en ESP-IDF 5.5, sin dependencia
+externa del ENC28J60. RESET en GPIO19 lo gestiona el controlador PHY. La
+alimentacion debe respetar la especificacion de la placa W5500 concreta.
+
+Preferir el aprovisionamiento AT descrito abajo. Como alternativa de compatibilidad,
+para incorporar valores de fabrica al binario, configurar `MQTT broker URI` y,
+si corresponde, usuario y contrasena. Los valores se guardan en `sdkconfig`
+local, ignorado por Git; no copiar credenciales a `sdkconfig.defaults`.
+Para `mqtts://<host>:8883`, activar `Use MQTT TLS`, indicar la ruta absoluta
+al certificado publico PEM de la CA/broker y configurar un servidor NTP
+accesible. Se incrusta solo el certificado publico durante la compilacion.
+El cliente espera sincronizacion NTP y valida cadena, fechas y nombre/IP del
+certificado; no se desactiva la verificacion. El certificado debe cubrir el
+host de la URI. `localhost` en el C6 apunta al C6, no al servidor del broker.
+El servidor debe escuchar en una interfaz accesible desde la LAN.
+MQTT sin TLS queda disponible solo para una red de banco confiable.
+
+Alternativa antigua, importacion al binario (solo si no existe configuracion NVS):
+
+```sh
+python3 tools/configure_mqtt.py /ruta/gateway-config.json
+idf.py build
+idf.py -p /dev/ttyACM0 app-flash
+```
+
+El importador valida TLS, esquema, identidad, topics y tiempos. Guarda el PEM
+publico en `mqtt-ca.local.pem` y las credenciales en `sdkconfig`, ambos ignorados
+por Git. Conserva la seleccion local de pines y velocidad SPI. Este importador
+antiguo requiere recompilar; `gateway_at.py` permite guardar por USB sin hacerlo.
+La configuracion NVS tiene precedencia sobre esos valores compilados.
+El certificado de Caddy/HTTPS de la web puede ser distinto del certificado de
+Mosquitto: usar `mqtt.ca_pem` del JSON del gateway.
+
+## Aprovisionamiento AT por USB, sin recompilar
+
+Requiere este firmware y W5500 habilitado para conectar a la red. Usa el mismo
+USB Serial/JTAG nativo (GPIO12/13) que CSV, a 115200, con lineas CRLF y sin eco.
+El JSON exportado por la web puede contener metadatos como
+`at_supported_by_current_firmware:false`: se toma su objeto `config`; esos
+metadatos no son instrucciones ni cambian la capacidad real del firmware.
+
+Desde el directorio del proyecto, cerrar antes cualquier monitor serial:
+
+```sh
+python tools/gateway_at.py --port /dev/ttyACM0 info
+python tools/gateway_at.py --port /dev/ttyACM0 load /ruta/gateway-config.json --restart
+python tools/gateway_at.py --port /dev/ttyACM0 --wait-mqtt 45 info
+```
+
+Sin `--restart` solo guarda. Aplicar despues con
+`python tools/gateway_at.py --port /dev/ttyACM0 restart` o reiniciar la placa.
+El comando `info` consulta datos no secretos y `mqtt_connected`; que se guarde
+la configuracion no demuestra que el broker sea accesible o acepte credenciales.
+El C6 sigue usando DHCP; cambiar `mqtt.host` cambia el servidor, no fija la IP del C6.
+Abrir USB puede reiniciar algunas placas; el script espera la consola y
+`--wait-mqtt 45` permite esperar DHCP/NTP/TLS manteniendo abierto el puerto.
+Un estado inicial link/IP/MQTT en cero durante ese arranque no confirma un fallo.
+
+| Comando | Respuesta / funcion |
+|---|---|
+| `AT` | `OK` |
+| `ATI` | `+FFAT: firefly-at/v1,...` y `OK` |
+| `AT+FFPROVBEGIN=N` | Inicia/reemplaza una transaccion RAM de N fragmentos |
+| `AT+FFPROVDATA=i,"BASE64"` | Fragmento consecutivo, indice desde cero |
+| `AT+FFPROVCOMMIT="SHA256"` | Valida y guarda; `+FFPROV: SAVED,RESTART_REQUIRED` y `OK` |
+| `AT+FFPROV?` | Configuracion guardada, origen y `pending_restart`, sin clave ni PEM |
+| `AT+FFPROVABORT` | Descarta transaccion sin modificar NVS |
+| `AT+FFSTATUS?` | Enlace, IP DHCP, MQTT e identidad **activa** |
+| `AT+RST` | `OK`, espera transmision y reinicia; no borra datos |
+
+El formato es compatible con las lineas del contrato web `firefly-at/v1-draft`;
+el receptor se identifica como `firefly-at/v1`. Al pegar un TXT de la web,
+transmitir solo lineas AT, no comentarios. Base64 transporta bytes UTF-8 del
+JSON y no cifra las credenciales. El script no muestra el payload ni la clave.
+
+Limites: JSON 8192 bytes, CA PEM 4096 bytes, hasta 3 servidores NTP,
+fragmentos base64 de 192 caracteres (el ultimo puede ser menor), hasta 57
+fragmentos y lineas de hasta 255 caracteres. Cada fragmento no final debe tener
+192 caracteres. La transaccion expira tras 60 s sin fragmentos validos; se
+descarta tambien al abortar, desconectar/reiniciar, fallar validacion o recibir
+una linea demasiado larga. Repetir el ultimo fragmento identico devuelve `OK`
+sin duplicarlo. No hay aplicacion parcial.
+
+`COMMIT` verifica orden, cantidad, base64, SHA-256 y contrato completo: Ethernet
+DHCP; TLS y verificacion obligatorios; URI/host/puerto coherentes; certificado
+X.509 parseable; identidad, usuario, topics, QoS1, MQTT3.1.1 y tiempos. El
+nombre/IP del **servidor** y las fechas se verifican al conectar despues de NTP.
+No se desactiva TLS si falla. Los pines y velocidad SPI siguen siendo opciones
+de compilacion porque dependen de la placa.
+
+Se guarda un blob versionado `gateway_prov/config`, con SHA-256 e integridad
+verificada al arrancar, mediante `nvs_set_blob` + `nvs_commit`. La misma carga
+exacta no reescribe NVS. Una carga invalida, incompleta o con error de escritura
+conserva la anterior. Datos corruptos se preservan: no se vuelve silenciosamente
+a otras credenciales; la consola AT permite reemplazarlos explicitamente.
+Cambios guardados se aplican juntos al reiniciar, manteniendo estables los
+punteros y topics de MQTT mientras se ejecuta la conexion actual. No se borran
+la red Zigbee, el CSV ni los resultados/deduplicacion de pruebas.
+
+Los parametros consultados con `FFPROV?` son los guardados para el proximo
+arranque si `pending_restart=1`; `FFSTATUS?` describe la conexion en ejecucion.
+Errores AT usan codigos como `ORDER`, `TIMEOUT`, `INCOMPLETE`, `BASE64`,
+`CHECKSUM`, `CONFIG`, `STORAGE` y `LINE_TOO_LONG`, nunca el texto recibido.
+La NVS actual no usa cifrado de flash: las credenciales quedan en la flash del
+dispositivo. Mantener privados tanto el JSON exportado como el acceso USB.
+
+Pruebas de software:
+
+```sh
+python -m unittest discover -s tools/tests -v
+```
+
+Las pruebas AT ejecutan el parser/almacenamiento C real con ASan/UBSan,
+SHA-256/base64/X.509 reales mediante un puerto OpenSSL y NVS/tiempo simulados.
+Comprueban repeticion, orden, timeout, validacion, fallos set/commit, reinicio,
+corrupcion, redaccion de secretos y compatibilidad del generador de fragmentos.
+
+Validacion fisica del **2026-11-18**:
+
+- Se compilo con ESP-IDF 5.5 y W5500 habilitado, sin claves MQTT incorporadas
+  al binario. Tambien compilo la variante USB sin Ethernet en build aislado.
+- Se cargo el firmware por `/dev/ttyACM0` y el archivo de configuracion nuevo
+  mediante `gateway_at.py load ... --restart`, sin recompilar sus parametros.
+- Tras reiniciar y volver a flashear el firmware, `FFPROV?` recupero `source=nvs`,
+  `pending_restart=0`, identidad `gateway-standar`, URI
+  `mqtts://192.168.18.40:8883`, client ID `firefly-gateway-standar`, TLS activado,
+  un NTP, keepalive/heartbeat de 60 s y clave presente, sin revelarla.
+- `FFSTATUS?` confirmo enlace Ethernet, IP DHCP **192.168.18.111** y
+  **mqtt_connected=1**. Un observador autenticado en el broker nuevo recibio
+  telemetria real de `f96afdfc` en su topic, con revision de bateria 3.
+- Una transaccion con SHA-256 deliberadamente incorrecto devolvio
+  `ERROR:CHECKSUM`; la configuracion NVS anterior se conservo. Las consultas
+  no devolvieron la contrasena ni el PEM.
+- Respaldo CSV previo: `/tmp/c6-before-at-20261118.csv`, **402167 bytes**,
+  CRC32 **b4536a1b**. Se mantuvieron red Zigbee y datos; no se ejecuto borrado.
+- Las **22 pruebas host** del C6 pasaron, incluyendo regresion de CSV,
+  configuracion de bateria y pruebas individuales. No se modifico el H2.
+
+- Raiz: `firefly/v1/gateways/<gateway_id>`; el usuario es el gateway registrado.
+- `/status`: JSON v1 retenido, `online`, `boot_id` y `message_id`. Heartbeat
+  configurable (60 s por defecto), y ultima voluntad `online:false`. Cada
+  conexion utiliza un ID distinto para su ultima voluntad.
+- `/telemetry`: JSON v1 segun el contrato Firefly, incluyendo `voltage_mv`,
+  `current_ma`, `power_mw`, `temperature_centi_c`, `soh_pct`, `sequence`,
+  `flags`, `uptime_s`, `report_interval_s`, `live` y capacidad real por nodo.
+- Se omite `measured_at`: Zigbee no incluye fecha de medicion. La web usa
+  recepcion. Para v1, el `boot_id` identifica un flujo heredado observado
+  por el gateway: cambia al reiniciar el C6 o detectar retroceso de uptime;
+  no constituye un identificador nativo de arranque del H2 y tiene limites
+  ante paquetes fuera de orden. Para v2 se propaga el boot ID nativo del H2.
+- Publicacion QoS 1 sin retencion para telemetria; `message_id` permite
+  deduplicar reintentos. Solo los H2 v2 compatibles anuncian `config_capable:true`.
+- Una cola de 16 muestras separa Zigbee de MQTT; el outbox se limita a 32 KiB.
+  El importador establece expiracion de mensajes pendientes a 15 s. Solo se
+  aceptan muestras para MQTT con conexion activa; las que esperan mas de 5 s
+  en la cola se marcan `live:false`. Al llenarse se descartan con aviso.
+  No hay replay automatico desde CSV; los pendientes se pierden al reiniciar.
+- CSV conserva su flujo y limites propios. Ethernet no borra NVS, red ni CSV.
+
+Verificar link, DHCP y `MQTT connected`, recepcion de una lampara y recuperacion
+al desconectar/reconectar Ethernet. La compilacion no verifica estas pruebas
+fisicas. El gateway tambien recibe comandos de configuracion y prueba individual,
+y publica ACK de configuracion y reportes completos de bateria.
+
+## Prueba individual desde FireFly Web
+
+El nuevo módulo `remote_test.c` recibe `commands/test` por MQTT QoS1, sin retain, para una lámpara identificada por ocho dígitos hexadecimales. La prueba dura 30 s y usa el comando Zigbee de programación existente con demora cero. El C6 publica `test-ack` y reenvía los reportes H2 por `test-report`, vinculando `command_id` cuando coincide el nodo y `test_id`. Las campañas automáticas reservan IDs 1–32767; la web usa 32768–65535. No se modifica el protocolo binario H2.
+
+El broker debe permitir al usuario gateway leer su topic `commands/test` y escribir su topic `test-ack`. La web incorpora esas ACL. El C6 anuncia `test_capable:true` con reloj sincronizado; sin esa capacidad la ficha muestra el botón deshabilitado. La sincronización NTP del transporte TLS existente es necesaria para validar el vencimiento.
+
+Se verifica UUID, destino, duración, antigüedad y vencimiento. El identificador y marca temporal se registran en NVS antes de enviar a Zigbee: duplicados y reinicios no reejecutan la orden. Si el envío físico quedó incierto, se informa `unknown`. Una orden ya transferida al H2 puede persistir allí y recuperarse tras su reinicio según el comportamiento actual de `battery_test`; el vencimiento MQTT no la cancela. No reenviar ciegamente una prueba sin resultado.
+
+El C6 evita solapar estas solicitudes con campañas automáticas o ciclos repetitivos; una solicitud puede rechazarse por ocupación. La reserva se libera al recibir el reporte o después de tres minutos. El H2 conserva sus validaciones y su límite local de activación del relé.
+
+Verificación sin placa:
+
+```sh
+source ~/esp/esp-idf/export.sh
+idf.py build
+python3 tools/tests/test_remote_test.py
+```
+
+La prueba de host compila el parser C real con cJSON de ESP-IDF y puertos simulados de NVS/MQTT/RTOS. Comprueba persistencia antes de actuar, duplicados, vencimiento, rechazo, corte entre envío/commit, recuperación y fragmentación MQTT. No demuestra comportamiento eléctrico. El ensayo físico de FW-001 del 2026-11-17 sí cargó C6/H2 y confirmó orden web, estado de prueba, retorno a AC y reporte con revisión original; su resultado eléctrico fue LOW_CURRENT. Consultar la evidencia y límites al final de este documento.
+
+## Configuracion de bateria por lampara (FW-001)
+
+Con Ethernet/MQTT habilitado, el C6 se suscribe a
+`firefly/v1/gateways/<gateway_id>/commands/config`, QoS1, sin retain. Recibe
+el contrato actual de la web: `schema_version:1`, `command_id` UUID,
+`device_id` hex8, `version` uint32 positivo por lampara y `thresholds` con
+los siete uint16 en mV. No exige quimica ni voltaje nominal en MQTT.
+
+Valida JSON y ensambla fragmentos contiguos de hasta 1024 bytes. La cola admite
+ocho solicitudes. Resuelve una direccion reciente (120 s), sin colision con
+otro ID, y exige capacidad anunciada en telemetria v2. Un nodo v1 sigue
+recibiendose con capacidad falsa. No se envia el perfil a un nodo desconocido
+ni se inventa un ACK ante fallo de envio: la web puede reintentar configuraciones.
+
+El H2 recibe Zigbee `0x05`; su ACK `0x06` debe coincidir con ID y direccion
+registrados. El C6 publica `/config-ack` solo a partir de esa respuesta:
+`applied`, `deferred`, `rejected`, motivo y UUID/revision originales.
+Motivos: `invalid`, `stale`, `conflict`, `storage`; `none` indica exito.
+El PUBACK MQTT o el envio Zigbee no significan aplicacion.
+
+Hay cache RAM FIFO de 16 respuestas distintas, reenvio al reconectar y
+reintento de encolado cada segundo. La cache no sobrevive al reinicio del C6;
+la web reintenta contra el H2 idempotente y el H2 reanuncia cada 30 s su estado
+persistido. Los reenvios de la misma respuesta mantienen `message_id`.
+
+Cada muestra v2 conserva su `config_version` activa y cada reporte la revision
+del inicio de la prueba. Revision cero/heredada se omite en MQTT; no equivale
+a un perfil web aplicado. Se conserva revision y boot ID en el resultado
+remoto persistido del C6; registros antiguos de deduplicacion se migran sin
+repetir la prueba ni inventar revision. CSV/USB mantienen sus columnas y descarga
+actuales: el CSV no incorpora la revision de perfil; MQTT si la transporta.
+
+Actualizar C6 y H2 mediante `idf.py -p PUERTO flash`, conservando NVS,
+`zb_storage` y CSV. No se necesita borrar la red para esta actualizacion.
+Los H2 v2 requieren un C6 nuevo. No se introducen perfiles reales de 4/6/12 V
+por defecto: configurarlos segun la bateria y las protecciones del controlador.
+
+```sh
+python -m unittest discover -s tools/tests -p 'test_remote*.py' -v
+```
+
+El parser se prueba con ASan/UBSan, fragmentacion, JSON invalido, reconexion,
+ACK y contrato Zod real de la web cuando estan instaladas sus dependencias.
+La descarga USB bloquea un tick entre bloques para permitir ejecutar IDLE:
+un simple `taskYIELD()` puede activar el watchdog durante archivos largos e
+intercalar su diagnostico en la transferencia; el descargador lo rechaza por CRC.
+La evidencia de compilaciones/carga/pruebas fisicas esta en
+`../../firefly-web/plan/firmware/FW-001-configuracion-bateria-h2-c6.md`.

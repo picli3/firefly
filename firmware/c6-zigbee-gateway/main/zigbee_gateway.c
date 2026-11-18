@@ -16,6 +16,9 @@
 #include "nwk/esp_zigbee_nwk.h"
 #include "telemetry_log.h"
 #include "telemetry_csv.h"
+#include "ethernet_mqtt.h"
+#include "remote_test.h"
+#include "remote_config.h"
 #include "test_campaign.h"
 #include "zdo/esp_zigbee_zdo_command.h"
 
@@ -108,30 +111,58 @@ static esp_err_t action_handler(esp_zb_core_action_callback_id_t callback_id, co
                         ESP_ERR_NOT_SUPPORTED, TAG, "Unexpected cluster 0x%04x", msg->info.cluster);
     uint16_t short_addr = msg->info.src_address.u.short_addr;
 
+    ESP_RETURN_ON_FALSE(msg->data.value, ESP_ERR_INVALID_ARG, TAG, "Empty ZCL payload");
+    if (msg->info.command.id == EMERGENCY_CMD_BATTERY_CONFIG_ACK) {
+        ESP_RETURN_ON_FALSE(msg->data.size == sizeof(battery_config_ack_t), ESP_ERR_INVALID_SIZE,
+                            TAG, "Invalid configuration ACK size");
+        battery_config_ack_t ack;
+        memcpy(&ack, msg->data.value, sizeof(ack));
+        uint16_t known_addr;
+        ESP_RETURN_ON_FALSE(ack.version == EMERGENCY_CONFIG_VERSION &&
+                            ack.status <= BATTERY_CONFIG_REJECTED && ack.revision &&
+                            node_registry_find_recent(ack.device_id, &known_addr) && known_addr == short_addr &&
+                            node_registry_can_configure(ack.device_id), ESP_ERR_INVALID_ARG, TAG,
+                            "Configuration ACK identity/capability mismatch");
+        remote_config_ack(&ack);
+        return ESP_OK;
+    }
+
     if (msg->info.command.id == EMERGENCY_CMD_TELEMETRY) {
-        ESP_RETURN_ON_FALSE(msg->data.size == sizeof(emergency_telemetry_t),
+        bool v2 = msg->data.size == sizeof(emergency_telemetry_v2_t);
+        ESP_RETURN_ON_FALSE(v2 || msg->data.size == sizeof(emergency_telemetry_t),
                             ESP_ERR_INVALID_SIZE, TAG, "Unexpected telemetry size %u", msg->data.size);
         emergency_telemetry_t sample;
         memcpy(&sample, msg->data.value, sizeof(sample));
-        ESP_RETURN_ON_FALSE(sample.payload_version == EMERGENCY_TELEMETRY_VERSION,
+        ESP_RETURN_ON_FALSE(sample.payload_version == (v2 ? EMERGENCY_TELEMETRY_VERSION_V2 : EMERGENCY_TELEMETRY_VERSION),
                             ESP_ERR_INVALID_VERSION, TAG, "Unsupported payload version %u", sample.payload_version);
         node_registry_register(sample.device_id, short_addr);
+        emergency_telemetry_v2_t frame = {0};
+        if (v2) memcpy(&frame, msg->data.value, sizeof(frame));
+        node_registry_config_capable(sample.device_id, v2 && frame.config_capable == 1);
         repeat_observe(&sample);
         telemetry_csv_enqueue(short_addr, &sample);
         telemetry_log_sample(short_addr, &sample);
+        if (v2) ethernet_mqtt_telemetry_v2(short_addr, &frame);
+        else ethernet_mqtt_telemetry(short_addr, &sample);
         return ESP_OK;
     }
 
     if (msg->info.command.id == EMERGENCY_CMD_TEST_REPORT) {
-        ESP_RETURN_ON_FALSE(msg->data.size == sizeof(battery_test_report_t),
+        bool v2 = msg->data.size == sizeof(battery_test_report_v2_t);
+        ESP_RETURN_ON_FALSE(v2 || msg->data.size == sizeof(battery_test_report_t),
                             ESP_ERR_INVALID_SIZE, TAG, "Unexpected test report size %u", msg->data.size);
         battery_test_report_t report;
         memcpy(&report, msg->data.value, sizeof(report));
-        ESP_RETURN_ON_FALSE(report.version == EMERGENCY_TEST_PROTOCOL_VERSION,
+        ESP_RETURN_ON_FALSE(report.version == (v2 ? EMERGENCY_TEST_PROTOCOL_VERSION_V2 : EMERGENCY_TEST_PROTOCOL_VERSION),
                             ESP_ERR_INVALID_VERSION, TAG, "Unsupported test report version %u", report.version);
         node_registry_register(report.device_id, short_addr);
         telemetry_log_test_report(short_addr, &report);
         test_campaign_process_report(&report);
+        if (v2) {
+            battery_test_report_v2_t frame;
+            memcpy(&frame, msg->data.value, sizeof(frame));
+            remote_test_report_v2(&frame);
+        } else remote_test_report(&report);
         return ESP_OK;
     }
 
@@ -228,6 +259,21 @@ static uint8_t send_test_command_locked(uint16_t short_addr, uint8_t command, co
     return esp_zb_zcl_custom_cluster_cmd_req(&req);
 }
 
+esp_err_t zigbee_gateway_send_battery_config(uint32_t device_id, const battery_config_request_t *request)
+{
+    if (!request || !s_ready) return ESP_ERR_INVALID_STATE;
+    if (!esp_zb_lock_acquire(pdMS_TO_TICKS(250))) return ESP_ERR_TIMEOUT;
+    uint16_t addr;
+    if (!node_registry_find_recent(device_id, &addr) || !node_registry_can_configure(device_id) ||
+        addr == 0 || addr >= 0xfff8) {
+        esp_zb_lock_release();
+        return ESP_ERR_NOT_FOUND;
+    }
+    send_test_command_locked(addr, EMERGENCY_CMD_BATTERY_CONFIG, request, sizeof(*request));
+    esp_zb_lock_release();
+    return ESP_OK; /* Sent, never equivalent to H2 applied. */
+}
+
 uint8_t zigbee_gateway_send_schedule(uint16_t short_addr, const battery_test_schedule_t *schedule)
 {
     esp_zb_lock_acquire(portMAX_DELAY);
@@ -240,7 +286,7 @@ esp_err_t zigbee_gateway_start_manual_test(uint32_t device_id)
 {
     if (!s_ready) return ESP_ERR_INVALID_STATE;
     if (!esp_zb_lock_acquire(pdMS_TO_TICKS(250))) return ESP_ERR_TIMEOUT;
-    if (device_id == s_repeat.target) {
+    if (device_id == s_repeat.target || test_campaign_remote_busy()) {
         esp_zb_lock_release();
         return ESP_ERR_INVALID_STATE;
     }
@@ -253,6 +299,22 @@ esp_err_t zigbee_gateway_start_manual_test(uint32_t device_id)
     uint8_t seq = send_test_command_locked(addr, EMERGENCY_CMD_START_TEST, duration_le, sizeof(duration_le));
     esp_zb_lock_release();
     ESP_LOGI(TAG, "MANUAL_TEST sent node=%08" PRIx32 " short=0x%04x duration=30s TSN=%u", device_id, addr, seq);
+    return ESP_OK;
+}
+
+esp_err_t zigbee_gateway_start_remote_test(uint32_t device_id, uint16_t test_id)
+{
+    if (!s_ready || test_id < 32768) return ESP_ERR_INVALID_STATE;
+    if (!esp_zb_lock_acquire(pdMS_TO_TICKS(250))) return ESP_ERR_TIMEOUT;
+    uint16_t addr;
+    if (s_repeat.target || !node_registry_find_recent(device_id, &addr) || addr == 0 || addr >= 0xfff8) {
+        esp_zb_lock_release(); return ESP_ERR_INVALID_STATE;
+    }
+    if (!test_campaign_reserve_remote(180)) { esp_zb_lock_release(); return ESP_ERR_INVALID_STATE; }
+    const battery_test_schedule_t schedule = {.version=EMERGENCY_TEST_PROTOCOL_VERSION,.test_id=test_id,.start_delay_s=0,.duration_s=30};
+    (void)send_test_command_locked(addr,EMERGENCY_CMD_SCHEDULE_TEST,&schedule,sizeof(schedule));
+    esp_zb_lock_release();
+    ESP_LOGI(TAG,"REMOTE_TEST sent node=%08" PRIx32 " test=%u duration=30s",device_id,test_id);
     return ESP_OK;
 }
 
@@ -287,7 +349,7 @@ esp_err_t zigbee_gateway_repeat_start(uint32_t device_id)
     if (!esp_zb_lock_acquire(pdMS_TO_TICKS(250))) return ESP_ERR_TIMEOUT;
     uint16_t addr;
     esp_err_t err;
-    if (s_repeat.target) {
+    if (s_repeat.target || test_campaign_remote_busy()) {
         err = ESP_ERR_INVALID_STATE;
     } else if (!device_id || !node_registry_find_recent(device_id, &addr)) {
         err = ESP_ERR_NOT_FOUND;

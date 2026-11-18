@@ -11,3 +11,8 @@ typedef bool (*zigbee_ready_provider_t)(void);
 
 esp_err_t test_campaign_init(test_schedule_sender_t sender, zigbee_ready_provider_t ready_provider);
 void test_campaign_process_report(const battery_test_report_t *report);
+
+bool test_campaign_reserve_remote(uint16_t seconds);
+bool test_campaign_remote_busy(void);
+
+void test_campaign_remote_done(void);

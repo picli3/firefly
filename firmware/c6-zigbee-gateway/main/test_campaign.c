@@ -4,6 +4,7 @@
 
 #include "app_config.h"
 #include "esp_log.h"
+#include "esp_timer.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/semphr.h"
 #include "freertos/task.h"
@@ -18,6 +19,7 @@ static uint16_t s_campaign_id;
 static size_t s_expected;
 static size_t s_reports;
 static size_t s_passed;
+static int64_t s_remote_until, s_campaign_until;
 
 static void save_campaign_id(void)
 {
@@ -39,8 +41,12 @@ static bool start_campaign(void)
     }
 
     xSemaphoreTake(s_mutex, portMAX_DELAY);
-    s_campaign_id++;
-    if (s_campaign_id == 0) s_campaign_id = 1;
+    if (esp_timer_get_time() < s_remote_until) {
+        xSemaphoreGive(s_mutex); return false;
+    }
+    s_campaign_id = (s_campaign_id % 32767) + 1;
+    size_t groups = (count + CONFIG_AUTO_TEST_GROUP_SIZE - 1) / CONFIG_AUTO_TEST_GROUP_SIZE;
+    s_campaign_until = esp_timer_get_time() + INT64_C(1000000) * (CONFIG_AUTO_TEST_LEAD_SECONDS + groups * (CONFIG_AUTO_TEST_DURATION_SECONDS + CONFIG_AUTO_TEST_GUARD_SECONDS));
     s_expected = count;
     s_reports = 0;
     s_passed = 0;
@@ -131,4 +137,27 @@ void test_campaign_process_report(const battery_test_report_t *report)
         }
     }
     xSemaphoreGive(s_mutex);
+}
+
+bool test_campaign_reserve_remote(uint16_t seconds)
+{
+    if (!s_mutex) return false;
+    xSemaphoreTake(s_mutex, portMAX_DELAY);
+    int64_t now=esp_timer_get_time();
+    bool available=now>=s_remote_until && now>=s_campaign_until;
+    if(available)s_remote_until=now+INT64_C(1000000)*seconds;
+    xSemaphoreGive(s_mutex);return available;
+}
+bool test_campaign_remote_busy(void)
+{
+    if(!s_mutex)return true;
+    xSemaphoreTake(s_mutex,portMAX_DELAY);
+    bool busy=esp_timer_get_time()<s_remote_until;
+    xSemaphoreGive(s_mutex);return busy;
+}
+
+void test_campaign_remote_done(void)
+{
+    if(!s_mutex)return;
+    xSemaphoreTake(s_mutex,portMAX_DELAY);s_remote_until=0;xSemaphoreGive(s_mutex);
 }

@@ -98,3 +98,20 @@ bool node_registry_mark_test_report(uint32_t device_id, uint16_t test_id)
     xSemaphoreGive(s_mutex);
     return is_new;
 }
+
+void node_registry_config_capable(uint32_t device_id, bool capable)
+{
+    xSemaphoreTake(s_mutex, portMAX_DELAY);
+    int index = find_node(device_id);
+    if (index >= 0) s_nodes[index].config_capable = capable;
+    xSemaphoreGive(s_mutex);
+}
+
+bool node_registry_can_configure(uint32_t device_id)
+{
+    xSemaphoreTake(s_mutex, portMAX_DELAY);
+    int index = find_node(device_id);
+    bool capable = index >= 0 && s_nodes[index].config_capable;
+    xSemaphoreGive(s_mutex);
+    return capable;
+}

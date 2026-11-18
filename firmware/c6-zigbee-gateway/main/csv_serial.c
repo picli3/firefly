@@ -15,6 +15,8 @@
 #include "sdkconfig.h"
 #include "telemetry_csv.h"
 #include "zigbee_gateway.h"
+#include "at_provisioning.h"
+#include "esp_system.h"
 
 #if !CONFIG_ESP_CONSOLE_USB_SERIAL_JTAG
 #error "The gateway command console requires native USB Serial/JTAG"
@@ -74,7 +76,10 @@ static void download(void)
         crc = csv_crc32_update(crc, buffer, length);
         if (!write_raw(buffer, length)) return;
         offset += length;
-        taskYIELD();
+        /* taskYIELD only schedules equal/higher priorities. A long snapshot
+         * can otherwise starve IDLE, whose watchdog prints bypass log_print
+         * and corrupt the serial framing. Actually block for one tick. */
+        vTaskDelay(1);
     }
     snprintf(line, sizeof(line), "\n@CSV END %u %08" PRIx32 "\n", (unsigned)size, crc ^ UINT32_MAX);
     reply(line);
@@ -82,6 +87,17 @@ static void download(void)
 
 static void command(const char *text)
 {
+    if (!strncmp(text, "AT", 2)) {
+        char result[1024];
+        bool restart = !strcmp(text, "AT+RST");
+        xSemaphoreTake(s_output, portMAX_DELAY);
+        if (restart) reply("OK\r\n");
+        else if (at_provisioning_command(text, result, sizeof(result))) reply(result);
+        usb_serial_jtag_wait_tx_done(SERIAL_TX_TIMEOUT);
+        xSemaphoreGive(s_output);
+        if (restart) { vTaskDelay(pdMS_TO_TICKS(100)); esp_restart(); }
+        return;
+    }
     if (strncmp(text, "zigbee repeat ", 14) == 0) {
         const char *operation = text + 14;
         char line[140];
@@ -159,20 +175,29 @@ static void command(const char *text)
 
 static void serial_task(void *arg)
 {
-    char line[80];
+    char line[256];
     size_t length = 0;
     bool overflow = false;
     for (;;) {
         uint8_t ch;
-        if (usb_serial_jtag_read_bytes(&ch, 1, portMAX_DELAY) != 1) continue;
+        if (!usb_serial_jtag_is_connected()) at_provisioning_abort();
+        at_provisioning_poll();
+        if (usb_serial_jtag_read_bytes(&ch, 1, pdMS_TO_TICKS(1000)) != 1) continue;
         if (ch == '\r' || ch == '\n') {
             if (length || overflow) {
                 line[length] = 0;
-                command(overflow ? "" : line);
+                if (overflow) {
+                    at_provisioning_abort();
+                    xSemaphoreTake(s_output, portMAX_DELAY);
+                    reply("ERROR:LINE_TOO_LONG\r\n");
+                    xSemaphoreGive(s_output);
+                } else command(line);
+                memset(line, 0, sizeof(line));
             }
             length = 0;
             overflow = false;
         } else if (ch == 3) {
+            at_provisioning_abort();
             length = 0;
             overflow = false;
         } else if (ch == 8 || ch == 127) {
@@ -198,5 +223,5 @@ esp_err_t csv_serial_start(void)
     usb_serial_jtag_vfs_use_driver();
     fflush(stdout);
     s_previous_print = esp_log_set_vprintf(log_print);
-    return xTaskCreate(serial_task, "csv_serial", 4096, NULL, 2, NULL) == pdPASS ? ESP_OK : ESP_ERR_NO_MEM;
+    return xTaskCreate(serial_task, "csv_serial", 8192, NULL, 2, NULL) == pdPASS ? ESP_OK : ESP_ERR_NO_MEM;
 }

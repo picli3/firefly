@@ -43,3 +43,108 @@ config AUTO_TEST_LEAD_SECONDS
     default 10
 
 endmenu
+
+menu "W5500 Ethernet and MQTT"
+
+config GATEWAY_ETH_ENABLED
+    bool "Enable W5500 Ethernet"
+    default n
+    select ETH_USE_SPI_ETHERNET
+    select ETH_SPI_ETHERNET_W5500
+
+if GATEWAY_ETH_ENABLED
+
+config GATEWAY_ETH_SPI_MHZ
+    int "SPI clock (MHz)"
+    range 1 20
+    default 10
+    help
+        Use short wires. Lower the clock for breadboard signal diagnostics.
+
+config GATEWAY_ETH_SCLK
+    int "SPI SCLK GPIO"
+    range 0 30
+    default 6
+
+config GATEWAY_ETH_MOSI
+    int "SPI MOSI GPIO"
+    range 0 30
+    default 7
+
+config GATEWAY_ETH_MISO
+    int "SPI MISO GPIO"
+    range 0 30
+    default 0
+
+config GATEWAY_ETH_CS
+    int "SPI CS GPIO"
+    range 0 30
+    default 10
+
+config GATEWAY_ETH_INT
+    int "Ethernet INT GPIO"
+    range 0 30
+    default 18
+
+config GATEWAY_ETH_RESET
+    int "Module RESET GPIO (-1 if not wired)"
+    range -1 30
+    default 19
+
+config GATEWAY_MQTT_URI
+    string "MQTT broker URI (empty for Ethernet-only test)"
+    default ""
+    help
+        Example: mqtts://broker.example:8883 with TLS enabled below.
+        Plain mqtt:// is also supported for a trusted bench network.
+
+config GATEWAY_MQTT_TLS
+    bool "Use MQTT TLS with certificate and hostname verification"
+    default n
+
+config GATEWAY_MQTT_CA_FILE
+    string "Absolute path to trusted broker CA PEM (public certificate)"
+    depends on GATEWAY_MQTT_TLS
+    default ""
+    help
+        Required for TLS. Embedded into firmware during build. Never use the
+        broker private key. The broker certificate must cover the URI host.
+
+config GATEWAY_NTP_SERVER
+    string "NTP server for TLS certificate date verification"
+    depends on GATEWAY_MQTT_TLS
+    default "pool.ntp.org"
+
+config GATEWAY_MQTT_USERNAME
+    string "MQTT username (optional)"
+    default ""
+
+config GATEWAY_MQTT_GATEWAY_ID
+    string "Firefly registered gateway ID"
+    default ""
+
+config GATEWAY_MQTT_CLIENT_ID
+    string "MQTT client ID"
+    default ""
+
+config GATEWAY_MQTT_HEARTBEAT_SECONDS
+    int "Gateway heartbeat interval (seconds)"
+    range 5 86400
+    default 60
+
+config GATEWAY_MQTT_KEEPALIVE_SECONDS
+    int "MQTT keepalive (seconds)"
+    range 5 3600
+    default 60
+
+config GATEWAY_MQTT_REPORT_INTERVAL_SECONDS
+    int "Expected lamp telemetry interval (seconds)"
+    range 5 86400
+    default 60
+
+config GATEWAY_MQTT_PASSWORD
+    string "MQTT password (local sdkconfig only)"
+    default ""
+
+endif
+endmenu

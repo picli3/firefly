@@ -1,0 +1,2 @@
+# Local certificate selected by tools/configure_mqtt.py
+mqtt-ca.local.pem
