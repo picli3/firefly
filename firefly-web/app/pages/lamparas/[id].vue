@@ -6,6 +6,20 @@ const { data, refresh } = await useAsyncData<any>(
   "lamp-" + route.params.id,
   () => fetcher("/api/lamps/" + route.params.id),
 );
+const ranges = [
+  ["1h", "Última hora"],
+  ["24h", "24 horas"],
+  ["7d", "7 días"],
+  ["28d", "28 días"],
+  ["3m", "3 meses"],
+  ["1y", "1 año"],
+] as const;
+const range = ref<string>("24h");
+const { data: series, refresh: refreshSeries } = await useAsyncData<any>(
+  "lamp-series-" + route.params.id,
+  () => fetcher(`/api/lamps/${route.params.id}/series?range=${range.value}`),
+  { watch: [range] },
+);
 const { data: locations } = await useAsyncData<any[]>("locations", () =>
   fetcher("/api/locations"),
 );
@@ -117,7 +131,13 @@ async function configure() {
 }
 let timer: ReturnType<typeof setInterval>;
 onMounted(() => {
-  timer = setInterval(() => refresh(), 5000);
+  let tick = 0;
+  timer = setInterval(() => {
+    refresh();
+    // Short windows follow live data; long ones only need a slow refresh.
+    const every = range.value === "1h" ? 1 : range.value === "24h" ? 6 : 60;
+    if (++tick % every === 0) refreshSeries();
+  }, 5000);
 });
 onBeforeUnmount(() => clearInterval(timer));
 const activeProfile = computed(() =>
@@ -204,30 +224,35 @@ const status: any = {
       Conservamos los flags y resultados originales, pero no los presentamos
       como un diagnóstico validado de esta batería.
     </p>
-    <div class="grid-2">
+    <div class="tabs chart-ranges" role="group" aria-label="Periodo de los gráficos">
+      <button
+        v-for="r in ranges"
+        :key="r[0]"
+        type="button"
+        :class="{ selected: range === r[0] }"
+        :aria-pressed="range === r[0]"
+        @click="range = r[0]"
+      >
+        {{ r[1] }}
+      </button>
+    </div>
+    <div
+      class="grid-2 chart-grid-area"
+      :class="{ reloading: series?.range !== range }"
+    >
       <LineChart
-        :rows="data.measurements"
-        field="voltage_mv"
-        label="Voltaje de batería"
-        :divisor="1000"
-        unit="V"
-      /><LineChart
-        :rows="data.measurements"
-        field="current_ma"
-        label="Corriente · positivo descarga"
-        unit="mA"
-      /><LineChart
-        :rows="data.measurements"
-        field="temperature_centi_c"
-        label="Temperatura"
-        :divisor="100"
-        unit="°C"
-      /><LineChart
-        :rows="data.measurements"
-        field="power_mw"
-        label="Potencia"
-        :divisor="1000"
-        unit="W"
+        v-for="c in [
+          { field: 'voltage_mv', label: 'Voltaje de batería', divisor: 1000, unit: 'V' },
+          { field: 'current_ma', label: 'Corriente · positivo descarga', divisor: 1, unit: 'mA' },
+          { field: 'temperature_centi_c', label: 'Temperatura', divisor: 100, unit: '°C' },
+          { field: 'power_mw', label: 'Potencia', divisor: 1000, unit: 'W' },
+        ]"
+        :key="c.field"
+        :series="series"
+        :field="c.field"
+        :label="c.label"
+        :divisor="c.divisor"
+        :unit="c.unit"
       />
     </div>
     <div v-if="admin" class="grid-2">

@@ -511,6 +511,18 @@ td strong {
 .chart-plot {
   position: relative;
 }
+.chart-ranges {
+  margin-bottom: 18px;
+}
+.chart-grid-area {
+  transition: opacity 0.15s;
+}
+.chart-grid-area.reloading {
+  opacity: 0.55;
+}
+.chart-dot {
+  fill: #16785c;
+}
 .chart svg {
   display: block;
   width: 100%;
