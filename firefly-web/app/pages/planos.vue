@@ -318,6 +318,13 @@ onBeforeUnmount(() => {
   events?.close();
   clearInterval(timer);
 });
+// Colores de marcador (shared/map-state) traducidos a tokens: siguen el modo claro/oscuro.
+const markerFill = (c: string) =>
+  ({
+    "#16785c": "var(--ff-chart-line)",
+    "#316cad": "var(--ff-map-gateway)",
+    "#85928c": "var(--ff-map-inactive)",
+  })[c] || c;
 // Los mensajes de éxito se muestran como notificación.
 watch(message, (m) => {
   if (m) toast.add({ title: m, color: "success", icon: "i-lucide-circle-check" });
@@ -342,24 +349,29 @@ watch(message, (m) => {
     </div>
     <div class="filter-bar">
       <label
-        >Nivel<select v-model="level">
-          <option value="">Selecciona un nivel</option>
-          <option
-            v-for="l in locations?.filter((l) => l.kind === 'level')"
-            :key="l.id"
-            :value="l.id"
-          >
-            {{ locations?.find((b) => b.id === l.parent_id)?.name }} /
-            {{ l.name }}
-          </option>
-        </select></label
+        >Nivel<FfSelect
+          v-model="level"
+          empty-label="Selecciona un nivel"
+          :items="
+            (locations || [])
+              .filter((l) => l.kind === 'level')
+              .map((l) => ({
+                value: l.id,
+                label: `${locations?.find((b) => b.id === l.parent_id)?.name || ''} / ${l.name}`,
+              }))
+          "
+        /></label
       ><label v-if="level"
-        >Plano<select v-model="planId">
-          <option value="">Sin plano</option>
-          <option v-for="p in availablePlans" :key="p.id" :value="p.id">
-            {{ p.filename }} · {{ p.active ? "Activo" : "Borrador" }}
-          </option>
-        </select></label
+        >Plano<FfSelect
+          v-model="planId"
+          empty-label="Sin plano"
+          :items="
+            availablePlans.map((p: any) => ({
+              value: p.id,
+              label: `${p.filename} · ${p.active ? 'Activo' : 'Borrador'}`,
+            }))
+          "
+        /></label
       >
     </div>
     <form
@@ -516,8 +528,8 @@ watch(message, (m) => {
                 :cx="p.x"
                 :cy="-p.y"
                 :r="view[2] / 90"
-                :fill="lampLook(p.item).color"
-                stroke="white"
+                :fill="markerFill(lampLook(p.item).color)"
+                stroke="var(--ff-surface)"
                 :stroke-width="view[2] / 450"
               />
               <circle
@@ -526,7 +538,7 @@ watch(message, (m) => {
                 :cy="-p.y - view[2] / 100"
                 :r="view[2] / 170"
                 fill="var(--ff-map-warning)"
-                stroke="white"
+                stroke="var(--ff-surface)"
                 :stroke-width="view[2] / 600"
               >
                 <title>Última alerta recibida</title>
@@ -568,8 +580,8 @@ watch(message, (m) => {
                 :width="view[2] / 37.5"
                 :height="view[2] / 37.5"
                 :rx="view[2] / 300"
-                :fill="gatewayLook(p.item).color"
-                stroke="white"
+                :fill="markerFill(gatewayLook(p.item).color)"
+                stroke="var(--ff-surface)"
                 :stroke-width="view[2] / 450"
               />
               <text
@@ -603,19 +615,26 @@ watch(message, (m) => {
       <aside class="panel form-panel">
         <h2>Dispositivos del plano</h2>
         <label
-          >Tipo de dispositivo<select v-model="kind">
-            <option value="lamp">Lámparas</option>
-            <option value="gateway">Gateways</option>
-          </select></label
+          >Tipo de dispositivo<FfSelect
+            v-model="kind"
+            :items="[
+              { value: 'lamp', label: 'Lámparas' },
+              { value: 'gateway', label: 'Gateways' },
+            ]"
+          /></label
         >
         <template v-if="kind === 'lamp'"
           ><label
-            >Lámpara<select v-model="selected">
-              <option value="">Selecciona una lámpara</option>
-              <option v-for="l in levelLamps" :key="l.id" :value="l.id">
-                {{ l.name || l.device_id }} · {{ lampLook(l).label }}
-              </option>
-            </select></label
+            >Lámpara<FfSelect
+              v-model="selected"
+              empty-label="Selecciona una lámpara"
+              :items="
+                levelLamps.map((l: any) => ({
+                  value: l.id,
+                  label: `${l.name || l.device_id} · ${lampLook(l).label}`,
+                }))
+              "
+            /></label
           ><template v-if="selectedLamp"
             ><UBadge
               class="self-start"
@@ -652,12 +671,16 @@ watch(message, (m) => {
         >
         <template v-else
           ><label
-            >Gateway<select v-model="selectedGateway">
-              <option value="">Selecciona un gateway</option>
-              <option v-for="g in listedGateways" :key="g.id" :value="g.id">
-                {{ g.name }} · {{ gatewayLook(g).label }}
-              </option>
-            </select></label
+            >Gateway<FfSelect
+              v-model="selectedGateway"
+              empty-label="Selecciona un gateway"
+              :items="
+                listedGateways.map((g: any) => ({
+                  value: g.id,
+                  label: `${g.name} · ${gatewayLook(g).label}`,
+                }))
+              "
+            /></label
           ><template v-if="gateway"
             ><UBadge
               class="self-start"

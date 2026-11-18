@@ -136,6 +136,80 @@
   --ff-map-warning: #cb7836;
 
   --ff-shadow-tip: 0 4px 14px rgb(36 59 52 / 12%);
+  --ff-on-brand: #ffffff;
+  --ff-overlay: rgb(255 255 255 / 88%);
+  color-scheme: light;
+}
+
+/*
+ * Modo oscuro: mismos tokens, valores propios (no una inversión automática).
+ * Texto principal y secundario con contraste AA sobre --ff-surface.
+ */
+.dark {
+  --ff-bg: #0d1613;
+  --ff-surface: #141f1b;
+  --ff-surface-subtle: #18251f;
+  --ff-surface-muted: #1d2b25;
+  --ff-border: #2a3a33;
+  --ff-border-subtle: #213029;
+  --ff-border-strong: #3a4e45;
+
+  --ff-text: #e3ece7; /* 14.0:1 */
+  --ff-text-muted: #a3b4ac; /* 7.8:1 */
+  --ff-text-faint: #5d6e66;
+
+  --ff-brand: #5cc095; /* 7.6:1 como texto */
+  --ff-brand-strong: #16785c; /* fondo de botón con texto blanco: 5.4:1 */
+  --ff-brand-hover: #1b8a69;
+  --ff-brand-ink: #8fd6b5;
+  --ff-brand-soft: #173a2e;
+  --ff-brand-ring: #2c976c;
+  --ff-accent: #c0eb75;
+
+  --ff-sidebar: #0a1c17;
+  --ff-sidebar-text: #b8d3c7;
+  --ff-sidebar-text-strong: #f4ffeb;
+  --ff-sidebar-muted: #8fb3a3;
+  --ff-sidebar-active: #1d4a3b;
+
+  --ff-good: #8fd6b5;
+  --ff-good-soft: #133227;
+  --ff-warn: #f2c37d;
+  --ff-warn-soft: #3a2b12;
+  --ff-bad: #f5a59b;
+  --ff-bad-soft: #3d1d19;
+  --ff-info: #93c5f2;
+  --ff-info-soft: #13283c;
+  --ff-notice-soft: #18251f;
+  --ff-notice-border: #3a4e45;
+
+  --ff-chart-line: #5cc095;
+  --ff-chart-grid: #24342d;
+  --ff-map-gateway: #74a8e6;
+  --ff-map-inactive: #7f8f88;
+  --ff-map-warning: #e39c5c;
+
+  --ff-shadow-tip: 0 4px 14px rgb(0 0 0 / 45%);
+  --ff-overlay: rgb(20 31 27 / 90%);
+  color-scheme: dark;
+
+  /* Nuxt UI en oscuro: tonos claros de cada escala para texto y acentos. */
+  --ui-primary: var(--ui-color-primary-400);
+  --ui-success: var(--ui-color-success-300);
+  --ui-info: var(--ui-color-info-300);
+  --ui-warning: var(--ui-color-warning-300);
+  --ui-error: var(--ui-color-error-300);
+  --ui-text: var(--ff-text);
+  --ui-text-muted: var(--ff-text-muted);
+  --ui-text-dimmed: var(--ff-text-faint);
+  --ui-text-highlighted: #ffffff;
+  --ui-bg: var(--ff-surface);
+  --ui-bg-muted: var(--ff-surface-subtle);
+  --ui-bg-elevated: var(--ff-surface-muted);
+  --ui-bg-accented: var(--ff-border);
+  --ui-border: var(--ff-border);
+  --ui-border-muted: var(--ff-border-subtle);
+  --ui-border-accented: var(--ff-border-strong);
 }
 /* Estilos de elementos HTML: en la capa base para que los componentes de
    Nuxt UI (capa utilities) puedan sobrescribirlos. */
@@ -219,6 +293,11 @@
     min-width: 0;
     width: 100%;
     color: var(--ff-text);
+  }
+  input,
+  select,
+  textarea {
+    font-weight: 400;
   }
   input:focus,
   select:focus {
@@ -576,7 +655,7 @@ td strong {
 }
 .primary {
   background: var(--ff-brand-strong);
-  color: var(--ff-surface);
+  color: var(--ff-on-brand);
 }
 .primary:hover {
   background: var(--ff-brand-hover);
@@ -774,7 +853,7 @@ td strong {
   bottom: 16px;
   left: 16px;
   font-size: 12px;
-  background: #ffffffe0;
+  background: var(--ff-overlay);
   color: var(--ff-text-muted);
   padding: 9px;
   border-radius: 5px;
@@ -1277,4 +1356,37 @@ details summary {
 }
 .map-layout aside.form-panel {
   gap: 14px;
+}
+
+/* Fase 5: selector FireFly y conmutador de tema */
+.ff-select {
+  position: relative;
+  width: 100%;
+  font-weight: 400;
+}
+.ff-select-trigger {
+  min-height: 40px;
+}
+.ff-select-proxy {
+  position: absolute;
+  bottom: 0;
+  left: 50%;
+  width: 1px;
+  height: 1px;
+  opacity: 0;
+  pointer-events: none;
+  padding: 0;
+  border: 0;
+}
+.topbar-end {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.dark .stat,
+.dark .panel {
+  box-shadow: none;
+}
+.dark .login-card {
+  border-color: var(--ff-border);
 }

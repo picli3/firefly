@@ -32,7 +32,14 @@ watch(
             />
             <span>FireFly / Monitoreo de luminarias</span>
           </div>
-          <span class="timezone">America/Lima · Acceso autenticado</span>
+          <div class="topbar-end">
+            <span class="timezone">America/Lima · Acceso autenticado</span>
+            <UColorModeButton
+              color="neutral"
+              variant="ghost"
+              aria-label="Cambiar entre modo claro y oscuro"
+            />
+          </div>
         </header>
         <div class="content"><NuxtPage /></div>
         <footer>

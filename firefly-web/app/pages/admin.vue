@@ -473,30 +473,31 @@ async function changeTrash(row: any, restore = false) {
             maxlength="160" /></label
         ><template v-if="tab === 'locations'"
           ><label
-            >Tipo<select
+            >Tipo<FfSelect
               v-model="form.kind"
+              :items="[
+                { value: 'site', label: 'Sede' },
+                { value: 'building', label: 'Edificio' },
+                { value: 'level', label: 'Nivel' },
+              ]"
               :disabled="!!editing"
               @change="form.parent_id = ''"
-            >
-              <option value="site">Sede</option>
-              <option value="building">Edificio</option>
-              <option value="level">Nivel</option>
-            </select></label
+            /></label
           ><label v-if="form.kind !== 'site'"
             >{{ form.kind === "building" ? "Sede" : "Edificio"
-            }}<select v-model="form.parent_id" required>
-              <option value="">Selecciona</option>
-              <option
-                v-for="l in data.locations.filter(
-                  (l: any) =>
-                    l.kind === (form.kind === 'building' ? 'site' : 'building'),
-                )"
-                :key="l.id"
-                :value="l.id"
-              >
-                {{ l.name }}
-              </option>
-            </select></label
+            }}<FfSelect
+              v-model="form.parent_id"
+              required
+              empty-label="Selecciona"
+              :items="
+                data.locations
+                  .filter(
+                    (l: any) =>
+                      l.kind === (form.kind === 'building' ? 'site' : 'building'),
+                  )
+                  .map((l: any) => ({ value: l.id, label: l.name }))
+              "
+            /></label
           ></template
         ><template v-if="tab === 'gateways'"
           ><label v-if="!editing"
@@ -506,12 +507,11 @@ async function changeTrash(row: any, restore = false) {
               required
               placeholder="gateway-edificio-a" /></label
           ><label
-            >Ubicación<select v-model="form.location_id">
-              <option value="">Sin ubicación</option>
-              <option v-for="l in data.locations" :key="l.id" :value="l.id">
-                {{ l.name }}
-              </option>
-            </select></label
+            >Ubicación<FfSelect
+              v-model="form.location_id"
+              empty-label="Sin ubicación"
+              :items="data.locations.map((l: any) => ({ value: l.id, label: l.name }))"
+            /></label
           ><label
             >Contraseña MQTT
             {{ editing ? "(vacía para conservar)" : "(vacía para generar)"
@@ -544,10 +544,13 @@ async function changeTrash(row: any, restore = false) {
               required
               autocomplete="off" /></label
           ><label
-            >Rol<select v-model="form.role">
-              <option value="monitor">Monitor</option>
-              <option value="admin">Administrador</option>
-            </select></label
+            >Rol<FfSelect
+              v-model="form.role"
+              :items="[
+                { value: 'monitor', label: 'Monitor' },
+                { value: 'admin', label: 'Administrador' },
+              ]"
+            /></label
           ><label
             >{{
               editing
@@ -604,16 +607,16 @@ async function changeTrash(row: any, restore = false) {
               required
               pattern="[a-zA-Z0-9_-]{1,64}" /></label
           ><label
-            >Gateway<select v-model="form.gateway_id" required>
-              <option value="">Selecciona</option>
-              <option
-                v-for="g in data.gateways.filter((g: any) => g.active)"
-                :key="g.id"
-                :value="g.id"
-              >
-                {{ g.name }}
-              </option>
-            </select></label
+            >Gateway<FfSelect
+              v-model="form.gateway_id"
+              required
+              empty-label="Selecciona"
+              :items="
+                data.gateways
+                  .filter((g: any) => g.active)
+                  .map((g: any) => ({ value: g.id, label: g.name }))
+              "
+            /></label
           >
           <p class="muted">
             Las lámparas que publican telemetría se detectan automáticamente.
