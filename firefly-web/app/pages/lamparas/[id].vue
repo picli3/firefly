@@ -204,92 +204,6 @@ const status: any = {
       Conservamos los flags y resultados originales, pero no los presentamos
       como un diagnóstico validado de esta batería.
     </p>
-    <section class="panel" style="margin-bottom: 20px">
-      <div class="panel-heading">
-        <h2>Prueba individual</h2>
-        <button
-          v-if="admin"
-          class="primary"
-          :disabled="
-            busy ||
-            !!activeTest ||
-            !data.lamp.connected ||
-            !data.lamp.gateway_test_capable ||
-            data.lamp.testing ||
-            !data.lamp.ac ||
-            !data.lamp.sensor_valid
-          "
-          @click="confirmTest = true"
-        >
-          Ejecutar prueba individual · 30 s
-        </button>
-      </div>
-      <p v-if="!data.lamp.gateway_test_capable" class="notice">
-        El C6 necesita firmware con recepción de órdenes MQTT y reloj
-        sincronizado para habilitar este botón.
-      </p>
-      <p v-else-if="!data.lamp.connected" class="notice">
-        La lámpara o su gateway están sin comunicación.
-      </p>
-      <p v-else-if="data.lamp.testing" class="notice">
-        La lámpara ya está en prueba.
-      </p>
-      <p v-else-if="!data.lamp.ac || !data.lamp.sensor_valid" class="notice">
-        Se necesita alimentación AC y una lectura válida del sensor para
-        solicitar la prueba.
-      </p>
-      <p class="small muted">
-        La prueba solicita al gateway simular la pérdida de AC durante 30
-        segundos para evaluar la batería. El resultado debe llegar desde la
-        lámpara; un envío por MQTT no confirma una prueba aprobada.
-      </p>
-      <div
-        v-if="confirmTest && admin"
-        role="alertdialog"
-        aria-label="Confirmar prueba individual"
-        class="notice"
-      >
-        <p>
-          ¿Ejecutar una prueba de 30 segundos en «{{
-            data.lamp.name || data.lamp.device_id
-          }}»?
-        </p>
-        <div class="actions">
-          <button class="primary" :disabled="busy" @click="runTest">
-            Confirmar prueba</button
-          ><button
-            class="secondary"
-            :disabled="busy"
-            @click="confirmTest = false"
-          >
-            Cancelar
-          </button>
-        </div>
-      </div>
-      <div v-if="data.test_requests?.length" class="table-scroll">
-        <table>
-          <thead>
-            <tr>
-              <th>Solicitud</th>
-              <th>Estado</th>
-              <th>Resultado</th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr v-for="r in data.test_requests" :key="r.id">
-              <td>
-                {{ dateText(r.created_at) }}<small>{{ r.id }}</small>
-              </td>
-              <td>
-                {{ testState[r.status] || r.status
-                }}<small>{{ r.reason }}</small>
-              </td>
-              <td>{{ r.result?.result || "—" }}</td>
-            </tr>
-          </tbody>
-        </table>
-      </div>
-    </section>
     <div class="grid-2">
       <LineChart
         :rows="data.measurements"
@@ -407,6 +321,92 @@ const status: any = {
             </tr>
             <tr v-if="!data.commands.length">
               <td colspan="5" class="empty">Sin cambios solicitados</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+    <section class="panel">
+      <div class="panel-heading">
+        <h2>Prueba individual</h2>
+        <button
+          v-if="admin"
+          class="primary"
+          :disabled="
+            busy ||
+            !!activeTest ||
+            !data.lamp.connected ||
+            !data.lamp.gateway_test_capable ||
+            data.lamp.testing ||
+            !data.lamp.ac ||
+            !data.lamp.sensor_valid
+          "
+          @click="confirmTest = true"
+        >
+          Ejecutar prueba individual · 30 s
+        </button>
+      </div>
+      <p v-if="!data.lamp.gateway_test_capable" class="notice">
+        El C6 necesita firmware con recepción de órdenes MQTT y reloj
+        sincronizado para habilitar este botón.
+      </p>
+      <p v-else-if="!data.lamp.connected" class="notice">
+        La lámpara o su gateway están sin comunicación.
+      </p>
+      <p v-else-if="data.lamp.testing" class="notice">
+        La lámpara ya está en prueba.
+      </p>
+      <p v-else-if="!data.lamp.ac || !data.lamp.sensor_valid" class="notice">
+        Se necesita alimentación AC y una lectura válida del sensor para
+        solicitar la prueba.
+      </p>
+      <p class="small muted">
+        La prueba solicita al gateway simular la pérdida de AC durante 30
+        segundos para evaluar la batería. El resultado debe llegar desde la
+        lámpara; un envío por MQTT no confirma una prueba aprobada.
+      </p>
+      <div
+        v-if="confirmTest && admin"
+        role="alertdialog"
+        aria-label="Confirmar prueba individual"
+        class="notice"
+      >
+        <p>
+          ¿Ejecutar una prueba de 30 segundos en «{{
+            data.lamp.name || data.lamp.device_id
+          }}»?
+        </p>
+        <div class="actions">
+          <button class="primary" :disabled="busy" @click="runTest">
+            Confirmar prueba</button
+          ><button
+            class="secondary"
+            :disabled="busy"
+            @click="confirmTest = false"
+          >
+            Cancelar
+          </button>
+        </div>
+      </div>
+      <div v-if="data.test_requests?.length" class="table-scroll">
+        <table>
+          <thead>
+            <tr>
+              <th>Solicitud</th>
+              <th>Estado</th>
+              <th>Resultado</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr v-for="r in data.test_requests" :key="r.id">
+              <td>
+                {{ dateText(r.created_at) }}<small>{{ r.id }}</small>
+              </td>
+              <td>
+                {{ testState[r.status] || r.status
+                }}<small>{{ r.reason }}</small>
+              </td>
+              <td>{{ r.result?.result || "—" }}</td>
             </tr>
           </tbody>
         </table>
