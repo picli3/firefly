@@ -8,8 +8,13 @@
 #define EMERGENCY_CMD_START_TEST          0x02
 #define EMERGENCY_CMD_SCHEDULE_TEST       0x03
 #define EMERGENCY_CMD_TEST_REPORT         0x04
+#define EMERGENCY_CMD_BATTERY_CONFIG      0x05
+#define EMERGENCY_CMD_BATTERY_CONFIG_ACK  0x06
 #define EMERGENCY_TELEMETRY_VERSION       1
 #define EMERGENCY_TEST_PROTOCOL_VERSION   1
+#define EMERGENCY_TELEMETRY_VERSION_V2    2
+#define EMERGENCY_TEST_PROTOCOL_VERSION_V2 2
+#define EMERGENCY_CONFIG_VERSION          1
 
 #define EMERGENCY_FLAG_AC_PRESENT         (1U << 0)
 #define EMERGENCY_FLAG_ALERT              (1U << 1)
@@ -55,6 +60,60 @@ typedef struct __attribute__((packed)) {
     uint8_t sample_count;
     uint8_t flags;
 } battery_test_report_t;
+
+/* v1 frames and their reserved bytes retain their original interpretation. */
+typedef struct __attribute__((packed)) {
+    emergency_telemetry_t sample;
+    uint32_t config_version; /* 0: inherited, unconfirmed defaults */
+    uint8_t config_capable;
+    uint32_t boot_id;
+} emergency_telemetry_v2_t;
+
+typedef struct __attribute__((packed)) {
+    battery_test_report_t report;
+    uint32_t config_version; /* snapshot taken when the test starts */
+    uint8_t config_capable;
+    uint32_t boot_id;
+} battery_test_report_v2_t;
+
+typedef struct __attribute__((packed)) {
+    uint16_t attention_mv, alert_mv, critical_mv, test_min_mv;
+    uint16_t full_mv, ac_empty_mv, dc_empty_mv;
+} battery_thresholds_t;
+
+typedef struct __attribute__((packed)) {
+    uint8_t version;
+    uint8_t command_uuid[16]; /* RFC4122 octet order */
+    uint32_t revision;
+    battery_thresholds_t thresholds;
+} battery_config_request_t;
+
+typedef struct __attribute__((packed)) {
+    uint8_t version;
+    uint8_t command_uuid[16];
+    uint32_t device_id;
+    uint32_t revision;
+    uint8_t status;
+    uint8_t reason;
+} battery_config_ack_t;
+
+enum { BATTERY_CONFIG_APPLIED, BATTERY_CONFIG_DEFERRED, BATTERY_CONFIG_REJECTED };
+enum {
+    BATTERY_CONFIG_REASON_NONE,
+    BATTERY_CONFIG_REASON_INVALID,
+    BATTERY_CONFIG_REASON_STALE,
+    BATTERY_CONFIG_REASON_CONFLICT,
+    BATTERY_CONFIG_REASON_STORAGE,
+};
+
+static inline int battery_thresholds_valid(const battery_thresholds_t *t)
+{
+    return t->critical_mv && t->alert_mv && t->attention_mv && t->test_min_mv &&
+           t->full_mv && t->ac_empty_mv && t->dc_empty_mv &&
+           t->critical_mv <= t->alert_mv && t->alert_mv < t->attention_mv &&
+           t->attention_mv <= t->full_mv && t->ac_empty_mv < t->full_mv &&
+           t->dc_empty_mv < t->full_mv && t->test_min_mv <= t->full_mv;
+}
 
 typedef enum {
     BATTERY_TEST_PASS,
