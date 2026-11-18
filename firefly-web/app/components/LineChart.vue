@@ -15,15 +15,25 @@ const props = defineProps<{
   unit: string;
 }>();
 
-// Plot geometry in viewBox units.
-const W = 600,
-  H = 200,
-  L = 56,
-  R = 14,
-  T = 12,
-  B = 30;
-const plotW = W - L - R,
+// Plot geometry. The viewBox width follows the real rendered width (ResizeObserver)
+// so 1 viewBox unit = 1 CSS px and axis text keeps its size on phones and desktops.
+const W = ref(600),
+  H = 210,
+  L = 52,
+  R = 12,
+  T = 26,
+  B = 28;
+const plotW = computed(() => W.value - L - R),
   plotH = H - T - B;
+let resize: ResizeObserver | undefined;
+onMounted(() => {
+  resize = new ResizeObserver(([e]) => {
+    const w = Math.round(e!.contentRect.width);
+    if (w > 0) W.value = w;
+  });
+  if (wrap.value) resize.observe(wrap.value);
+});
+onBeforeUnmount(() => resize?.disconnect());
 
 const div = computed(() => props.divisor || 1);
 const bucketMs = computed(() => (props.series?.bucket || 60) * 1000);
@@ -72,7 +82,7 @@ const fmt = (v: number, d = valueDecimals.value) =>
   v.toLocaleString("es-PE", { minimumFractionDigits: d, maximumFractionDigits: d });
 
 const x = (t: number) =>
-  L + ((t - domain.value.start) * plotW) / (domain.value.end - domain.value.start);
+  L + ((t - domain.value.start) * plotW.value) / (domain.value.end - domain.value.start);
 const y = (v: number) =>
   T + plotH - ((v - scale.value.start) * plotH) / (scale.value.end - scale.value.start);
 
@@ -114,7 +124,7 @@ const timeText = (t: number, mode: "axis" | "tip") => {
   return new Date(t).toLocaleString("es-PE", o);
 };
 const xTicks = computed(() =>
-  [0, 0.25, 0.5, 0.75, 1].map((f, k, a) => {
+  (W.value < 420 ? [0, 0.5, 1] : [0, 0.25, 0.5, 0.75, 1]).map((f, k, a) => {
     const t = domain.value.start + f * (domain.value.end - domain.value.start);
     return {
       x: x(t),
@@ -147,7 +157,7 @@ function onMove(e: PointerEvent) {
   if (!el || !m || !samples.value.length) return;
   const p = new DOMPoint(e.clientX, e.clientY).matrixTransform(m.inverse());
   const t =
-    domain.value.start + ((p.x - L) / plotW) * (domain.value.end - domain.value.start);
+    domain.value.start + ((p.x - L) / plotW.value) * (domain.value.end - domain.value.start);
   let best = 0;
   samples.value.forEach((s, i) => {
     if (Math.abs(s.t - t) < Math.abs(samples.value[best]!.t - t)) best = i;
@@ -175,7 +185,7 @@ const activeSample = computed(() =>
   active.value === null ? null : samples.value[active.value],
 );
 const tipSide = computed(() =>
-  activeSample.value && x(activeSample.value.t) > L + plotW * 0.6 ? "left" : "right",
+  activeSample.value && x(activeSample.value.t) > L + plotW.value * 0.6 ? "left" : "right",
 );
 </script>
 <template>
@@ -219,7 +229,7 @@ const tipSide = computed(() =>
             >
               {{ fmt(t, scale.decimals) }}
             </text>
-            <text :x="L - 8" :y="T - 2" text-anchor="end" class="chart-unit">
+            <text :x="L - 8" :y="11" text-anchor="end" class="chart-unit">
               {{ unit }}
             </text>
             <text

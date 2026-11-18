@@ -1,7 +1,23 @@
 <script setup lang="ts">
 const route = useRoute(),
+  router = useRouter(),
+  toast = useToast(),
   fetcher = useRequestFetch(),
   { admin } = useSession();
+// Pestañas: la elegida queda en la URL (?tab=) para poder compartir el enlace.
+const tabs = [
+  { label: "Resumen", value: "resumen", icon: "i-lucide-activity" },
+  { label: "Pruebas", value: "pruebas", icon: "i-lucide-flask-conical" },
+  { label: "Configuración", value: "configuracion", icon: "i-lucide-sliders-horizontal" },
+];
+const tab = computed({
+  get: () =>
+    tabs.some((t) => t.value === route.query.tab)
+      ? String(route.query.tab)
+      : "resumen",
+  set: (v: string | number) =>
+    router.replace({ query: { ...route.query, tab: String(v) } }),
+});
 const { data, refresh } = await useAsyncData<any>(
   "lamp-" + route.params.id,
   () => fetcher("/api/lamps/" + route.params.id),
@@ -34,9 +50,18 @@ const edit = reactive({
     place: "",
   }),
   profile = ref(""),
-  error = ref(""),
-  message = ref(""),
   busy = ref(false);
+function ok(title: string, description?: string) {
+  toast.add({ title, description, color: "success", icon: "i-lucide-circle-check" });
+}
+function fail(e: unknown) {
+  toast.add({
+    title: "No se pudo completar",
+    description: errorText(e),
+    color: "error",
+    icon: "i-lucide-circle-x",
+  });
+}
 watch(
   () => data.value?.lamp.id,
   () => {
@@ -53,7 +78,6 @@ watch(
 );
 async function save() {
   busy.value = true;
-  error.value = "";
   try {
     await $fetch("/api/lamps/" + route.params.id, {
       method: "PATCH",
@@ -64,9 +88,9 @@ async function save() {
       },
     });
     await refresh();
-    message.value = "Lámpara actualizada";
+    ok("Lámpara actualizada");
   } catch (e) {
-    error.value = errorText(e);
+    fail(e);
   } finally {
     busy.value = false;
   }
@@ -93,8 +117,6 @@ const activeTest = computed(() =>
 );
 async function runTest() {
   busy.value = true;
-  error.value = "";
-  message.value = "";
   testRequestId.value ||= crypto.randomUUID();
   try {
     await $fetch("/api/lamps/" + route.params.id + "/test", {
@@ -104,17 +126,18 @@ async function runTest() {
     testRequestId.value = null;
     confirmTest.value = false;
     await refresh();
-    message.value =
-      "Prueba individual solicitada. Consulta la confirmación y el resultado debajo.";
+    ok(
+      "Prueba individual solicitada",
+      "El estado y el resultado aparecen en la tabla de solicitudes.",
+    );
   } catch (e) {
-    error.value = errorText(e);
+    fail(e);
   } finally {
     busy.value = false;
   }
 }
 async function configure() {
   busy.value = true;
-  error.value = "";
   try {
     await $fetch("/api/lamps/" + route.params.id + "/configure", {
       method: "POST",
@@ -122,10 +145,12 @@ async function configure() {
     });
     profileTouched.value = false;
     await refresh();
-    message.value =
-      "Configuración solicitada. Esperando confirmación de la lámpara.";
+    ok(
+      "Configuración solicitada",
+      "Se mostrará como actual cuando la lámpara confirme que la aplicó.",
+    );
   } catch (e) {
-    error.value = errorText(e);
+    fail(e);
   } finally {
     busy.value = false;
   }
@@ -190,6 +215,41 @@ const status: any = {
   rejected: "Rechazada",
   superseded: "Sustituida",
 };
+type BadgeColor = "success" | "info" | "warning" | "error" | "neutral";
+const statusColor: Record<string, BadgeColor> = {
+  pending: "neutral",
+  sent: "info",
+  deferred: "warning",
+  applied: "success",
+  rejected: "error",
+  superseded: "neutral",
+};
+const testColor: Record<string, BadgeColor> = {
+  pending: "info",
+  sent: "info",
+  accepted: "info",
+  completed: "success",
+  rejected: "error",
+  unknown: "warning",
+  expired: "neutral",
+  cancelled: "neutral",
+};
+const testBlocked = computed(() => {
+  const l = data.value?.lamp;
+  if (!l) return "";
+  if (!l.gateway_test_capable)
+    return "El C6 necesita firmware con recepción de órdenes MQTT y reloj sincronizado para habilitar la prueba.";
+  if (!l.connected) return "La lámpara o su gateway están sin comunicación.";
+  if (l.testing) return "La lámpara ya está en prueba.";
+  if (!l.ac || !l.sensor_valid)
+    return "Se necesita alimentación AC y una lectura válida del sensor para solicitar la prueba.";
+  return "";
+});
+const profileUnconfirmed = computed(
+  () =>
+    !activeProfile.value ||
+    activeProfile.value.profile_nominal_mv !== data.value?.lamp.nominal_mv,
+);
 </script>
 <template>
   <section v-if="data">
@@ -202,352 +262,420 @@ const status: any = {
           {{ data.lamp.device_id }} · {{ data.lamp.gateway_name }}
         </p>
       </div>
-      <StatusPills :lamp="data.lamp" />
-    </div>
-    <div class="stats">
-      <div class="stat">
-        <span>Voltaje</span
-        ><strong
-          >{{
-            data.lamp.latest
-              ? (data.lamp.latest.voltage_mv / 1000).toFixed(3)
-              : "—"
-          }}
-          <small>V</small></strong
-        >
-      </div>
-      <div class="stat">
-        <span>Corriente</span
-        ><strong
-          >{{ data.lamp.latest?.current_ma ?? "—" }} <small>mA</small></strong
-        >
-      </div>
-      <div class="stat">
-        <span>Temperatura</span
-        ><strong
-          >{{
-            data.lamp.sensor_valid
-              ? (data.lamp.latest.temperature_centi_c / 100).toFixed(1)
-              : "—"
-          }}
-          <small>°C</small></strong
-        >
-      </div>
-      <div class="stat">
-        <span>Estimación por tensión</span
-        ><strong
-          >{{ data.lamp.sensor_valid ? data.lamp.latest.soh_pct : "—" }}
-          <small>%</small></strong
+      <div class="lamp-heading-side">
+        <StatusPills :lamp="data.lamp" />
+        <span class="muted small"
+          >Última comunicación: {{ dateText(data.lamp.last_seen) }}</span
         >
       </div>
     </div>
-    <p class="notice">
-      Última comunicación: {{ dateText(data.lamp.last_seen) }}. El porcentaje no
-      mide capacidad ni autonomía.
-      {{
-        data.lamp.config_capable
-          ? ""
-          : "Firmware sin soporte de configuración remota; puede usar umbrales fijos de 6 V."
-      }}
-    </p>
-    <p
-      v-if="
-        !activeProfile ||
-        activeProfile.profile_nominal_mv !== data.lamp.nominal_mv
-      "
-      class="notice"
-    >
-      El perfil activo no está confirmado para la tensión nominal registrada.
-      Conservamos los flags y resultados originales, pero no los presentamos
-      como un diagnóstico validado de esta batería.
-    </p>
-    <div class="tabs chart-ranges" role="group" aria-label="Periodo de los gráficos">
-      <button
-        v-for="r in ranges"
-        :key="r[0]"
-        type="button"
-        :class="{ selected: range === r[0] }"
-        :aria-pressed="range === r[0]"
-        @click="range = r[0]"
-      >
-        {{ r[1] }}
-      </button>
-    </div>
-    <div
-      class="grid-2 chart-grid-area"
-      :class="{ reloading: series?.range !== range }"
-    >
-      <LineChart
-        v-for="c in [
-          { field: 'voltage_mv', label: 'Voltaje de batería', divisor: 1000, unit: 'V' },
-          { field: 'current_ma', label: 'Corriente · positivo descarga', divisor: 1, unit: 'mA' },
-          { field: 'temperature_centi_c', label: 'Temperatura', divisor: 100, unit: '°C' },
-          { field: 'power_mw', label: 'Potencia', divisor: 1000, unit: 'W' },
-        ]"
-        :key="c.field"
-        :series="series"
-        :field="c.field"
-        :label="c.label"
-        :divisor="c.divisor"
-        :unit="c.unit"
-      />
-    </div>
-    <div v-if="admin" class="grid-2">
-      <form class="panel form-panel" @submit.prevent="save">
-        <h2>Identificación y ubicación</h2>
-        <label>Nombre<input v-model="edit.name" required /></label
-        ><label>Modelo<input v-model="edit.model" /></label
-        ><label
-          >Tensión nominal de batería (mV)<input
-            v-model.number="edit.nominal_mv"
-            type="number"
-            min="1"
-            required /></label
-        ><label
-          >Nivel<select v-model="edit.location_id">
-            <option value="">Sin asignar</option>
-            <option
-              v-for="l in locations?.filter((x) => x.kind === 'level')"
-              :key="l.id"
-              :value="l.id"
-            >
-              {{ l.name }}
-            </option>
-          </select></label
-        ><label
-          >Lugar<input
-            v-model="edit.place"
-            placeholder="Pasillo norte" /></label
-        ><button :disabled="busy" class="primary">
-          Guardar identificación
-        </button>
-      </form>
-      <form class="panel form-panel" @submit.prevent="configure">
-        <h2>Perfil de batería</h2>
-        <div class="profile-current">
-          <span class="muted">Perfil actual en la lámpara</span>
-          <strong v-if="currentCommand"
-            >{{ currentCommand.profile_name }} · v{{
-              currentCommand.profile_version
+
+    <UTabs
+      v-model="tab"
+      :items="tabs"
+      :content="false"
+      variant="link"
+      color="primary"
+      class="lamp-tabs"
+    />
+
+    <!-- RESUMEN -->
+    <template v-if="tab === 'resumen'">
+      <div class="stats">
+        <div class="stat">
+          <span>Voltaje</span
+          ><strong
+            >{{
+              data.lamp.latest
+                ? (data.lamp.latest.voltage_mv / 1000).toFixed(3)
+                : "—"
             }}
-            · {{ currentCommand.profile_nominal_mv / 1000 }} V</strong
+            <small>V</small></strong
           >
-          <strong v-else>Sin perfil confirmado</strong>
-          <small v-if="currentCommand" class="muted"
-            >Configuración n.º {{ currentCommand.version }} · confirmada
-            {{ dateText(currentCommand.applied_at || currentCommand.created_at) }}</small
-          >
-          <small v-else class="muted">{{
-            data.lamp.config_capable
-              ? "La lámpara aún no ha confirmado ninguna configuración."
-              : "Usa los umbrales fijos de su firmware."
-          }}</small>
         </div>
-        <p v-if="pendingCommand" class="notice">
-          Cambio pendiente: <strong>{{ pendingCommand.profile_name }} · v{{
-            pendingCommand.profile_version
-          }}</strong>
-          ({{ status[pendingCommand.status] }}). Se mostrará como actual cuando
-          la lámpara confirme que lo aplicó.
-        </p>
-        <label
-          >Perfil y versión<select
-            v-model="profile"
-            required
-            @change="profileTouched = true"
+        <div class="stat">
+          <span>Corriente</span
+          ><strong
+            >{{ data.lamp.latest?.current_ma ?? "—" }} <small>mA</small></strong
           >
-            <option value="">Selecciona un perfil compatible</option>
-            <option
-              v-for="p in profiles?.filter(
-                (p) => p.nominal_mv === data.lamp.nominal_mv,
-              )"
-              :key="p.version_id"
-              :value="p.version_id"
-            >
-              {{ p.name }} · v{{ p.version }} · {{ p.nominal_mv / 1000 }} V
-            </option>
-          </select></label
-        >
-        <p class="muted">
-          El cambio se confirma únicamente cuando el nodo informa que lo guardó
-          y aplicó. Si está en prueba, debe diferirlo hasta terminar.
-        </p>
-        <button
-          :disabled="busy || !data.lamp.config_capable || profileUnchanged"
-          class="primary"
-        >
-          {{
-            profileUnchanged
-              ? pendingCommand
-                ? "Cambio ya solicitado"
-                : "Perfil ya aplicado"
-              : "Solicitar configuración"
-          }}
-        </button>
-        <p v-if="!data.lamp.config_capable" class="error">
-          El firmware no admite configuración remota.
-        </p>
-      </form>
-    </div>
-    <p v-if="error" class="error" role="alert">{{ error }}</p>
-    <p v-if="message" class="success" role="status">{{ message }}</p>
-    <section class="panel">
-      <div class="panel-heading"><h2>Configuraciones</h2></div>
-      <div class="table-scroll">
-        <table>
-          <thead>
-            <tr>
-              <th>Versión</th>
-              <th>Perfil</th>
-              <th>Estado</th>
-              <th>Fecha</th>
-              <th>Detalle</th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr v-for="c in data.commands" :key="c.id">
-              <td>{{ c.version }}</td>
-              <td>{{ c.profile_name }}</td>
-              <td>{{ status[c.status] }}</td>
-              <td>{{ dateText(c.applied_at || c.created_at) }}</td>
-              <td>
-                {{ c.reason || "—" }} <small>{{ c.attempts }} intentos</small>
-              </td>
-            </tr>
-            <tr v-if="!data.commands.length">
-              <td colspan="5" class="empty">Sin cambios solicitados</td>
-            </tr>
-          </tbody>
-        </table>
+        </div>
+        <div class="stat">
+          <span>Temperatura</span
+          ><strong
+            >{{
+              data.lamp.sensor_valid
+                ? (data.lamp.latest.temperature_centi_c / 100).toFixed(1)
+                : "—"
+            }}
+            <small>°C</small></strong
+          >
+        </div>
+        <div class="stat">
+          <span>Estimación por tensión</span
+          ><strong
+            >{{ data.lamp.sensor_valid ? data.lamp.latest.soh_pct : "—" }}
+            <small>%</small></strong
+          >
+        </div>
       </div>
-    </section>
-    <section class="panel">
-      <div class="panel-heading">
-        <h2>Prueba individual</h2>
-        <button
-          v-if="admin"
-          class="primary"
-          :disabled="
-            busy ||
-            !!activeTest ||
-            !data.lamp.connected ||
-            !data.lamp.gateway_test_capable ||
-            data.lamp.testing ||
-            !data.lamp.ac ||
-            !data.lamp.sensor_valid
-          "
-          @click="confirmTest = true"
-        >
-          Ejecutar prueba individual · 30 s
-        </button>
+      <div class="lamp-alerts">
+        <UAlert
+          v-if="profileUnconfirmed"
+          color="warning"
+          variant="subtle"
+          icon="i-lucide-triangle-alert"
+          title="Perfil no confirmado para esta batería"
+          description="El perfil activo no está confirmado para la tensión nominal registrada. Se conservan los flags y resultados originales, pero no se presentan como un diagnóstico validado."
+        />
+        <UAlert
+          v-if="!data.lamp.config_capable"
+          color="neutral"
+          variant="subtle"
+          icon="i-lucide-cpu"
+          title="Firmware sin configuración remota"
+          description="Puede estar usando los umbrales fijos de 6 V del firmware."
+        />
+        <UAlert
+          color="info"
+          variant="subtle"
+          icon="i-lucide-info"
+          description="El porcentaje es una estimación por tensión: no mide capacidad ni autonomía."
+        />
       </div>
-      <p v-if="!data.lamp.gateway_test_capable" class="notice">
-        El C6 necesita firmware con recepción de órdenes MQTT y reloj
-        sincronizado para habilitar este botón.
-      </p>
-      <p v-else-if="!data.lamp.connected" class="notice">
-        La lámpara o su gateway están sin comunicación.
-      </p>
-      <p v-else-if="data.lamp.testing" class="notice">
-        La lámpara ya está en prueba.
-      </p>
-      <p v-else-if="!data.lamp.ac || !data.lamp.sensor_valid" class="notice">
-        Se necesita alimentación AC y una lectura válida del sensor para
-        solicitar la prueba.
-      </p>
-      <p class="small muted">
-        La prueba solicita al gateway simular la pérdida de AC durante 30
-        segundos para evaluar la batería. El resultado debe llegar desde la
-        lámpara; un envío por MQTT no confirma una prueba aprobada.
-      </p>
+      <div class="chart-toolbar">
+        <UFieldGroup aria-label="Periodo de los gráficos">
+          <UButton
+            v-for="r in ranges"
+            :key="r[0]"
+            :label="r[1]"
+            size="sm"
+            :color="range === r[0] ? 'primary' : 'neutral'"
+            :variant="range === r[0] ? 'solid' : 'outline'"
+            :aria-pressed="range === r[0]"
+            @click="range = r[0]"
+          />
+        </UFieldGroup>
+      </div>
       <div
-        v-if="confirmTest && admin"
-        role="alertdialog"
-        aria-label="Confirmar prueba individual"
-        class="notice"
+        class="grid-2 chart-grid-area"
+        :class="{ reloading: series?.range !== range }"
       >
-        <p>
-          ¿Ejecutar una prueba de 30 segundos en «{{
-            data.lamp.name || data.lamp.device_id
-          }}»?
-        </p>
-        <div class="actions">
-          <button class="primary" :disabled="busy" @click="runTest">
-            Confirmar prueba</button
-          ><button
-            class="secondary"
+        <LineChart
+          v-for="c in [
+            { field: 'voltage_mv', label: 'Voltaje de batería', divisor: 1000, unit: 'V' },
+            { field: 'current_ma', label: 'Corriente · positivo descarga', divisor: 1, unit: 'mA' },
+            { field: 'temperature_centi_c', label: 'Temperatura', divisor: 100, unit: '°C' },
+            { field: 'power_mw', label: 'Potencia', divisor: 1000, unit: 'W' },
+          ]"
+          :key="c.field"
+          :series="series"
+          :field="c.field"
+          :label="c.label"
+          :divisor="c.divisor"
+          :unit="c.unit"
+        />
+      </div>
+    </template>
+
+    <!-- PRUEBAS -->
+    <template v-else-if="tab === 'pruebas'">
+      <section class="panel">
+        <div class="panel-heading">
+          <div>
+            <h2>Prueba individual</h2>
+            <p class="small muted panel-sub">
+              Simula la pérdida de AC durante 30 s para evaluar la batería. Solo
+              el resultado enviado por la lámpara confirma la prueba.
+            </p>
+          </div>
+          <UButton
+            v-if="admin"
+            icon="i-lucide-play"
+            label="Ejecutar prueba · 30 s"
+            :loading="busy"
+            :disabled="busy || !!activeTest || !!testBlocked"
+            @click="confirmTest = true"
+          />
+        </div>
+        <UAlert
+          v-if="testBlocked"
+          class="panel-alert"
+          color="neutral"
+          variant="subtle"
+          icon="i-lucide-circle-pause"
+          :description="testBlocked"
+        />
+        <UAlert
+          v-else-if="activeTest"
+          class="panel-alert"
+          color="info"
+          variant="subtle"
+          icon="i-lucide-loader-circle"
+          :description="'Prueba en curso: ' + (testState[activeTest.status] || activeTest.status)"
+        />
+        <div class="table-scroll">
+          <table>
+            <thead>
+              <tr>
+                <th>Solicitud</th>
+                <th>Estado</th>
+                <th>Resultado</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr v-for="r in data.test_requests" :key="r.id">
+                <td>
+                  {{ dateText(r.created_at) }}<small class="mono">{{ r.id }}</small>
+                </td>
+                <td>
+                  <UBadge
+                    :color="testColor[r.status] || 'neutral'"
+                    variant="subtle"
+                    :label="testState[r.status] || r.status"
+                  /><small>{{ r.reason }}</small>
+                </td>
+                <td>
+                  <UBadge
+                    v-if="r.result?.result"
+                    :color="r.result.result === 'PASS' ? 'success' : 'error'"
+                    variant="subtle"
+                    :label="r.result.result"
+                  />
+                  <span v-else class="muted">—</span>
+                </td>
+              </tr>
+              <tr v-if="!data.test_requests?.length">
+                <td colspan="3" class="empty">Sin solicitudes de prueba</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+      <section class="panel">
+        <div class="panel-heading">
+          <h2>Resultados de pruebas recibidos</h2>
+          <UButton
+            :to="'/reportes?lamp=' + data.lamp.id"
+            variant="ghost"
+            size="sm"
+            trailing-icon="i-lucide-arrow-right"
+            label="Exportar"
+          />
+        </div>
+        <div class="table-scroll">
+          <table>
+            <thead>
+              <tr>
+                <th>Fecha</th>
+                <th>Resultado original</th>
+                <th>Duración</th>
+                <th>V mínima</th>
+                <th>Configuración</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr v-for="t in data.tests" :key="t.id">
+                <td>
+                  {{ dateText(t.measured_at || t.received_at)
+                  }}<small>{{ t.measured_at ? "Medición" : "Recepción" }}</small>
+                </td>
+                <td>
+                  <UBadge
+                    :color="t.data.result === 'PASS' ? 'success' : 'error'"
+                    variant="subtle"
+                    :label="t.data.result"
+                  />
+                </td>
+                <td>{{ t.data.duration_s }} s</td>
+                <td>{{ t.data.voltage_min_mv / 1000 }} V</td>
+                <td>
+                  {{ t.config_version ?? "Desconocida" }} ·
+                  {{ t.profile_snapshot?.name || "Perfil desconocido" }}
+                </td>
+              </tr>
+              <tr v-if="!data.tests.length">
+                <td colspan="5" class="empty">
+                  Sin resultados. Esto no equivale a una prueba aprobada.
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+    </template>
+
+    <!-- CONFIGURACIÓN -->
+    <template v-else>
+      <div v-if="admin" class="grid-2">
+        <form class="panel form-panel" @submit.prevent="save">
+          <h2>Identificación y ubicación</h2>
+          <label>Nombre<input v-model="edit.name" required /></label
+          ><label>Modelo<input v-model="edit.model" /></label
+          ><label
+            >Tensión nominal de batería (mV)<input
+              v-model.number="edit.nominal_mv"
+              type="number"
+              min="1"
+              required /></label
+          ><label
+            >Nivel<select v-model="edit.location_id">
+              <option value="">Sin asignar</option>
+              <option
+                v-for="l in locations?.filter((x) => x.kind === 'level')"
+                :key="l.id"
+                :value="l.id"
+              >
+                {{ l.name }}
+              </option>
+            </select></label
+          ><label
+            >Lugar<input
+              v-model="edit.place"
+              placeholder="Pasillo norte" /></label
+          >
+          <UButton
+            type="submit"
+            icon="i-lucide-save"
+            label="Guardar identificación"
+            :loading="busy"
+            class="self-start"
+          />
+        </form>
+        <form class="panel form-panel" @submit.prevent="configure">
+          <h2>Perfil de batería</h2>
+          <div class="profile-current">
+            <span class="muted">Perfil actual en la lámpara</span>
+            <strong v-if="currentCommand"
+              >{{ currentCommand.profile_name }} · v{{
+                currentCommand.profile_version
+              }}
+              · {{ currentCommand.profile_nominal_mv / 1000 }} V</strong
+            >
+            <strong v-else>Sin perfil confirmado</strong>
+            <small v-if="currentCommand" class="muted"
+              >Configuración n.º {{ currentCommand.version }} · confirmada
+              {{ dateText(currentCommand.applied_at || currentCommand.created_at) }}</small
+            >
+            <small v-else class="muted">{{
+              data.lamp.config_capable
+                ? "La lámpara aún no ha confirmado ninguna configuración."
+                : "Usa los umbrales fijos de su firmware."
+            }}</small>
+          </div>
+          <UAlert
+            v-if="pendingCommand"
+            color="info"
+            variant="subtle"
+            icon="i-lucide-clock"
+            :title="`Cambio pendiente: ${pendingCommand.profile_name} · v${pendingCommand.profile_version}`"
+            :description="`${status[pendingCommand.status]}. Se mostrará como actual cuando la lámpara confirme que lo aplicó.`"
+          />
+          <label
+            >Perfil y versión<select
+              v-model="profile"
+              required
+              @change="profileTouched = true"
+            >
+              <option value="">Selecciona un perfil compatible</option>
+              <option
+                v-for="p in profiles?.filter(
+                  (p) => p.nominal_mv === data.lamp.nominal_mv,
+                )"
+                :key="p.version_id"
+                :value="p.version_id"
+              >
+                {{ p.name }} · v{{ p.version }} · {{ p.nominal_mv / 1000 }} V
+              </option>
+            </select></label
+          >
+          <p class="muted small">
+            El cambio se confirma únicamente cuando el nodo informa que lo guardó
+            y aplicó. Si está en prueba, lo difiere hasta terminar.
+          </p>
+          <UAlert
+            v-if="!data.lamp.config_capable"
+            color="error"
+            variant="subtle"
+            icon="i-lucide-circle-x"
+            description="El firmware no admite configuración remota."
+          />
+          <UButton
+            type="submit"
+            icon="i-lucide-send"
+            :loading="busy"
+            :disabled="busy || !data.lamp.config_capable || profileUnchanged"
+            class="self-start"
+            :label="
+              profileUnchanged
+                ? pendingCommand
+                  ? 'Cambio ya solicitado'
+                  : 'Perfil ya aplicado'
+                : 'Solicitar configuración'
+            "
+          />
+        </form>
+      </div>
+      <section class="panel">
+        <div class="panel-heading"><h2>Historial de configuraciones</h2></div>
+        <div class="table-scroll">
+          <table>
+            <thead>
+              <tr>
+                <th>Versión</th>
+                <th>Perfil</th>
+                <th>Estado</th>
+                <th>Fecha</th>
+                <th>Detalle</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr v-for="c in data.commands" :key="c.id">
+                <td>{{ c.version }}</td>
+                <td>{{ c.profile_name }}</td>
+                <td>
+                  <UBadge
+                    :color="statusColor[c.status] || 'neutral'"
+                    variant="subtle"
+                    :label="status[c.status] || c.status"
+                  />
+                </td>
+                <td>{{ dateText(c.applied_at || c.created_at) }}</td>
+                <td>
+                  {{ c.reason || "—" }} <small>{{ c.attempts }} intentos</small>
+                </td>
+              </tr>
+              <tr v-if="!data.commands.length">
+                <td colspan="5" class="empty">Sin cambios solicitados</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+    </template>
+
+    <UModal
+      v-model:open="confirmTest"
+      title="Confirmar prueba individual"
+      :description="`Se simulará la pérdida de AC durante 30 segundos en «${data.lamp.name || data.lamp.device_id}».`"
+    >
+      <template #footer>
+        <div class="modal-actions">
+          <UButton
+            color="neutral"
+            variant="outline"
+            label="Cancelar"
             :disabled="busy"
             @click="confirmTest = false"
-          >
-            Cancelar
-          </button>
+          />
+          <UButton
+            icon="i-lucide-play"
+            label="Confirmar prueba"
+            :loading="busy"
+            @click="runTest"
+          />
         </div>
-      </div>
-      <div v-if="data.test_requests?.length" class="table-scroll">
-        <table>
-          <thead>
-            <tr>
-              <th>Solicitud</th>
-              <th>Estado</th>
-              <th>Resultado</th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr v-for="r in data.test_requests" :key="r.id">
-              <td>
-                {{ dateText(r.created_at) }}<small>{{ r.id }}</small>
-              </td>
-              <td>
-                {{ testState[r.status] || r.status
-                }}<small>{{ r.reason }}</small>
-              </td>
-              <td>{{ r.result?.result || "—" }}</td>
-            </tr>
-          </tbody>
-        </table>
-      </div>
-    </section>
-    <section class="panel">
-      <div class="panel-heading">
-        <h2>Resultados de pruebas recibidos</h2>
-        <NuxtLink :to="'/reportes?lamp=' + data.lamp.id" class="text-link"
-          >Exportar →</NuxtLink
-        >
-      </div>
-      <div class="table-scroll">
-        <table>
-          <thead>
-            <tr>
-              <th>Fecha</th>
-              <th>Resultado original</th>
-              <th>Duración</th>
-              <th>V mínima</th>
-              <th>Configuración</th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr v-for="t in data.tests" :key="t.id">
-              <td>
-                {{ dateText(t.measured_at || t.received_at)
-                }}<small>{{ t.measured_at ? "Medición" : "Recepción" }}</small>
-              </td>
-              <td>{{ t.data.result }}</td>
-              <td>{{ t.data.duration_s }} s</td>
-              <td>{{ t.data.voltage_min_mv / 1000 }} V</td>
-              <td>
-                {{ t.config_version ?? "Desconocida" }} ·
-                {{ t.profile_snapshot?.name || "Perfil desconocido" }}
-              </td>
-            </tr>
-            <tr v-if="!data.tests.length">
-              <td colspan="5" class="empty">
-                Sin resultados. Esto no equivale a una prueba aprobada.
-              </td>
-            </tr>
-          </tbody>
-        </table>
-      </div>
-    </section>
+      </template>
+    </UModal>
   </section>
   <div v-else class="empty">Lámpara no disponible</div>
 </template>
