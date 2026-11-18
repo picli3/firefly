@@ -1,7 +1,71 @@
+/* Fuentes empaquetadas localmente: la web funciona sin internet (Orange Pi). */
+@import "@fontsource-variable/dm-sans";
+@import "@fontsource-variable/manrope";
+
+/*
+ * Tokens de diseño FireFly. Todos los colores de la interfaz salen de aquí;
+ * los textos cumplen contraste WCAG AA (>= 4.5:1) sobre su fondo.
+ */
 :root {
-  font-family: "DM Sans", system-ui, sans-serif;
-  color: #243b34;
-  background: #f4f7f5;
+  --ff-font-body: "DM Sans Variable", "DM Sans", system-ui, sans-serif;
+  --ff-font-display: "Manrope Variable", Manrope, system-ui, sans-serif;
+  --ff-font-mono: ui-monospace, "SFMono-Regular", Menlo, monospace;
+
+  /* Superficies */
+  --ff-bg: #f4f7f5;
+  --ff-surface: #ffffff;
+  --ff-surface-subtle: #f8fbf7;
+  --ff-surface-muted: #f0f2ee;
+  --ff-border: #e0e8e1;
+  --ff-border-subtle: #edf1ed;
+  --ff-border-strong: #cbd9cb;
+
+  /* Texto */
+  --ff-text: #243b34;
+  --ff-text-muted: #5f6e67; /* 5.4:1 sobre blanco */
+  --ff-text-faint: #9aaaa3; /* solo decorativo, no para texto */
+
+  /* Marca */
+  --ff-brand: #16785c;
+  --ff-brand-strong: #1b6b50;
+  --ff-brand-hover: #12583f;
+  --ff-brand-ink: #226044;
+  --ff-brand-soft: #e0ece2;
+  --ff-brand-ring: #b5d9c9;
+  --ff-accent: #c0eb75;
+
+  /* Barra lateral */
+  --ff-sidebar: #103e33;
+  --ff-sidebar-text: #b8d3c7;
+  --ff-sidebar-text-strong: #f4ffeb;
+  --ff-sidebar-muted: #9fc0b2;
+  --ff-sidebar-active: #28604c;
+
+  /* Estados: fondo suave + texto oscuro (AA) */
+  --ff-good: #276b4b;
+  --ff-good-soft: #e7f4ec;
+  --ff-warn: #8a5a1c;
+  --ff-warn-soft: #fff2df;
+  --ff-bad: #9e3b31;
+  --ff-bad-soft: #fde9e6;
+  --ff-info: #33639c;
+  --ff-info-soft: #eaf1fd;
+  --ff-notice-soft: #edf2eb;
+  --ff-notice-border: #c9d8b7;
+
+  /* Gráficos y mapa */
+  --ff-chart-line: #16785c;
+  --ff-chart-grid: #e4ebe7;
+  --ff-map-gateway: #316cad;
+  --ff-map-inactive: #85928c;
+  --ff-map-warning: #cb7836;
+
+  --ff-shadow-tip: 0 4px 14px rgb(36 59 52 / 12%);
+}
+html {
+  font-family: var(--ff-font-body);
+  color: var(--ff-text);
+  background: var(--ff-bg);
   font-size: 14px;
   font-synthesis: none;
 }
@@ -30,6 +94,11 @@ button {
   cursor: pointer;
   border: none;
 }
+button:focus-visible,
+a:focus-visible {
+  outline: 2px solid var(--ff-brand);
+  outline-offset: 3px;
+}
 button:disabled {
   opacity: 0.5;
   cursor: not-allowed;
@@ -41,7 +110,7 @@ p {
   margin-top: 0;
 }
 h1 {
-  font-family: Manrope, system-ui, sans-serif;
+  font-family: var(--ff-font-display);
   font-size: 32px;
   letter-spacing: -1.1px;
   margin-bottom: 10px;
@@ -56,27 +125,27 @@ h3 {
   font-size: 14px;
 }
 small {
-  font-size: 11px;
+  font-size: 12px;
 }
 td small {
   display: block;
   margin-top: 6px;
-  color: #76847e;
+  color: var(--ff-text-muted);
 }
 input,
 select {
-  background: white;
-  border: 1px solid #dce4df;
+  background: var(--ff-surface);
+  border: 1px solid var(--ff-border);
   border-radius: 7px;
   padding: 10px 12px;
   min-width: 0;
   width: 100%;
-  color: #243b34;
+  color: var(--ff-text);
 }
 input:focus,
 select:focus {
-  border-color: #278263;
-  outline: 2px solid #b5d9c9;
+  border-color: var(--ff-brand);
+  outline: 2px solid var(--ff-brand-ring);
 }
 input[type="checkbox"] {
   width: auto;
@@ -99,8 +168,8 @@ label.check {
 .sidebar {
   width: 234px;
   flex: none;
-  background: #103e33;
-  color: #e8f4ee;
+  background: var(--ff-sidebar);
+  color: var(--ff-sidebar-text-strong);
   display: flex;
   flex-direction: column;
   padding: 32px 22px;
@@ -111,7 +180,7 @@ label.check {
   display: flex;
   align-items: center;
   gap: 10px;
-  font-family: Manrope, sans-serif;
+  font-family: var(--ff-font-display);
   font-weight: 800;
   font-size: 25px;
   letter-spacing: -0.8px;
@@ -119,23 +188,23 @@ label.check {
 .brand-mark {
   display: grid;
   place-items: center;
-  background: #c0eb75;
+  background: var(--ff-accent);
   border-radius: 10px;
-  color: #163d2d;
+  color: var(--ff-sidebar);
   width: 36px;
   height: 36px;
   font-size: 27px;
 }
 .brand-tag {
-  font-size: 8px;
+  font-size: 10px;
   letter-spacing: 1.4px;
   align-self: flex-end;
   margin: 0 0 6px -4px;
-  color: #a7c7b7;
+  color: var(--ff-sidebar-muted);
 }
 .nav-label {
-  color: #7eaa98;
-  font-size: 9px;
+  color: var(--ff-sidebar-muted);
+  font-size: 11px;
   font-weight: 700;
   letter-spacing: 1.8px;
   margin: 52px 10px 18px;
@@ -150,7 +219,7 @@ nav a {
   gap: 12px;
   align-items: center;
   padding: 13px 12px;
-  color: #b8d3c7;
+  color: var(--ff-sidebar-text);
   border-radius: 8px;
   font-size: 15px;
 }
@@ -158,9 +227,9 @@ nav a span {
   font-size: 12px;
 }
 nav a.router-link-exact-active {
-  color: #f4ffeb;
-  background: #28604c;
-  box-shadow: inset 3px 0 #c0eb75;
+  color: var(--ff-sidebar-text-strong);
+  background: var(--ff-sidebar-active);
+  box-shadow: inset 3px 0 var(--ff-accent);
 }
 .sidebar-bottom {
   margin-top: auto;
@@ -170,11 +239,11 @@ nav a.router-link-exact-active {
   padding: 30px 8px 0;
 }
 .sidebar-bottom small {
-  color: #9fc0b2;
+  color: var(--ff-sidebar-muted);
 }
 .private-tag {
-  font-size: 10px;
-  color: #c0eb75;
+  font-size: 11px;
+  color: var(--ff-accent);
   letter-spacing: 0.4px;
   margin-bottom: 18px;
 }
@@ -191,17 +260,17 @@ nav a.router-link-exact-active {
 }
 .topbar {
   height: 68px;
-  border-bottom: 1px solid #e1e8e3;
-  background: #fbfdfb;
+  border-bottom: 1px solid var(--ff-border);
+  background: var(--ff-surface-subtle);
   display: flex;
   justify-content: space-between;
   align-items: center;
   padding: 0 38px;
-  font-size: 11px;
-  color: #7b8a83;
+  font-size: 12px;
+  color: var(--ff-text-muted);
 }
 .timezone {
-  font-size: 10px;
+  font-size: 12px;
 }
 .content {
   padding: 36px 38px 10px;
@@ -216,25 +285,25 @@ nav a.router-link-exact-active {
   margin-bottom: 28px;
 }
 .eyebrow {
-  font-size: 9px;
+  font-size: 11px;
   letter-spacing: 1.8px;
   font-weight: 700;
-  color: #43856c;
+  color: var(--ff-brand);
   margin: 0 0 11px;
 }
 .muted {
-  color: #7a8982;
+  color: var(--ff-text-muted);
   line-height: 1.65;
 }
 .page-heading p:last-child {
   margin-bottom: 0;
 }
 .small {
-  font-size: 11px;
+  font-size: 12px;
   line-height: 1.6;
 }
 .mono {
-  font-family: ui-monospace, monospace;
+  font-family: var(--ff-font-mono);
 }
 .stats {
   display: grid;
@@ -243,18 +312,18 @@ nav a.router-link-exact-active {
   margin-bottom: 26px;
 }
 .stat {
-  border: 1px solid #e0e8e1;
+  border: 1px solid var(--ff-border);
   border-radius: 12px;
   padding: 23px;
-  background: #fff;
+  background: var(--ff-surface);
   box-shadow: 0 3px 10px #233b2803;
 }
 .stat > span {
-  color: #7a8982;
-  font-size: 11px;
+  color: var(--ff-text-muted);
+  font-size: 13px;
 }
 .stat strong {
-  font-family: Manrope, sans-serif;
+  font-family: var(--ff-font-display);
   display: block;
   font-size: 33px;
   font-weight: 700;
@@ -263,22 +332,22 @@ nav a.router-link-exact-active {
 }
 .stat strong small {
   font-size: 14px;
-  color: #7a8982;
+  color: var(--ff-text-muted);
   display: inline;
   font-weight: 400;
 }
 .green {
-  color: #16785c;
+  color: var(--ff-brand);
 }
 .amber {
-  color: #bc7f34;
+  color: var(--ff-warn);
 }
 .gray {
-  color: #839089;
+  color: var(--ff-text-muted);
 }
 .panel {
-  background: white;
-  border: 1px solid #e0e8e1;
+  background: var(--ff-surface);
+  border: 1px solid var(--ff-border);
   border-radius: 12px;
   overflow: hidden;
   margin-bottom: 22px;
@@ -289,7 +358,12 @@ nav a.router-link-exact-active {
   align-items: center;
   gap: 15px;
   padding: 22px;
-  border-bottom: 1px solid #edf1ed;
+  border-bottom: 1px solid var(--ff-border-subtle);
+}
+.panel > p,
+.panel > .notice,
+.panel > [role="alertdialog"] {
+  margin: 16px 22px;
 }
 .panel-heading h2 .muted {
   font-weight: 400;
@@ -308,7 +382,7 @@ nav a.router-link-exact-active {
 }
 .filter-bar select {
   padding: 11px;
-  font-size: 11px;
+  font-size: 13px;
 }
 .table-scroll {
   overflow: auto;
@@ -317,13 +391,13 @@ table {
   width: 100%;
   border-collapse: collapse;
   text-align: left;
-  font-size: 12px;
+  font-size: 13px;
 }
 th {
   padding: 14px 20px;
-  background: #fbfcfa;
-  color: #8b958f;
-  font-size: 9px;
+  background: var(--ff-surface-subtle);
+  color: var(--ff-text-muted);
+  font-size: 11px;
   text-transform: uppercase;
   letter-spacing: 0.8px;
   font-weight: 500;
@@ -331,14 +405,14 @@ th {
 }
 td {
   padding: 19px 20px;
-  border-top: 1px solid #edf1ed;
+  border-top: 1px solid var(--ff-border-subtle);
   vertical-align: middle;
 }
 tbody tr:hover {
-  background: #fcfefb;
+  background: var(--ff-surface-subtle);
 }
 td strong {
-  font-size: 12px;
+  font-size: 13px;
   font-weight: 600;
 }
 .pills {
@@ -353,59 +427,59 @@ td strong {
   gap: 5px;
   border: 1px solid transparent;
   border-radius: 5px;
-  padding: 5px 7px;
-  font-size: 9px;
+  padding: 4px 8px;
+  font-size: 11px;
   font-weight: 600;
   white-space: nowrap;
 }
 .good {
-  background: #e7f4ec;
-  color: #357e5a;
+  background: var(--ff-good-soft);
+  color: var(--ff-good);
 }
 .neutral {
-  background: #f0f2ee;
-  color: #7c8881;
+  background: var(--ff-surface-muted);
+  color: var(--ff-text-muted);
 }
 .warn {
-  background: #fff2df;
-  color: #b0782d;
+  background: var(--ff-warn-soft);
+  color: var(--ff-warn);
 }
 .bad {
-  background: #fde9e6;
-  color: #b75147;
+  background: var(--ff-bad-soft);
+  color: var(--ff-bad);
 }
 .info {
-  background: #eaf1fd;
-  color: #4c78ad;
+  background: var(--ff-info-soft);
+  color: var(--ff-info);
 }
 .notice {
-  font-size: 11px;
-  line-height: 1.8;
-  color: #7e8b82;
+  font-size: 13px;
+  line-height: 1.6;
+  color: var(--ff-text-muted);
   padding: 15px 18px;
-  background: #edf2eb;
+  background: var(--ff-notice-soft);
   border-radius: 8px;
   margin: 18px 0;
-  border-left: 3px solid #c9d8b7;
+  border-left: 3px solid var(--ff-notice-border);
 }
 .empty {
   text-align: center;
   padding: 60px 30px;
-  color: #849288;
+  color: var(--ff-text-muted);
 }
 .empty strong {
   display: block;
-  color: #415c4d;
+  color: var(--ff-text);
   font-size: 17px;
   margin-bottom: 12px;
 }
 .empty p {
-  font-size: 12px;
+  font-size: 13px;
   line-height: 1.7;
 }
 .text-link {
-  color: #2b795a;
-  font-size: 11px;
+  color: var(--ff-brand);
+  font-size: 13px;
   background: none;
   padding: 0;
   font-weight: 600;
@@ -417,21 +491,21 @@ td strong {
   align-items: center;
   border-radius: 7px;
   padding: 11px 16px;
-  font-size: 11px;
+  font-size: 13px;
   font-weight: 600;
   gap: 6px;
 }
 .primary {
-  background: #1b6b50;
-  color: white;
+  background: var(--ff-brand-strong);
+  color: var(--ff-surface);
 }
 .primary:hover {
-  background: #12583f;
+  background: var(--ff-brand-hover);
 }
 .secondary {
-  background: #f8fbf7;
-  color: #3d6b53;
-  border: 1px solid #dce7dc;
+  background: var(--ff-surface-subtle);
+  color: var(--ff-brand-ink);
+  border: 1px solid var(--ff-border);
 }
 .actions {
   display: flex;
@@ -440,7 +514,7 @@ td strong {
 }
 .search {
   max-width: 295px;
-  font-size: 11px;
+  font-size: 13px;
 }
 .grid-2 {
   display: grid;
@@ -474,33 +548,33 @@ td strong {
   gap: 5px;
   flex-wrap: wrap;
   margin-bottom: 25px;
-  border-bottom: 1px solid #dce5dd;
+  border-bottom: 1px solid var(--ff-border);
   padding-bottom: 10px;
 }
 .tabs button {
   background: none;
   padding: 11px 15px;
-  color: #7f8b82;
-  font-size: 12px;
+  color: var(--ff-text-muted);
+  font-size: 13px;
   border-radius: 7px;
 }
 .tabs button.selected {
-  background: #e0ece2;
-  color: #226044;
+  background: var(--ff-brand-soft);
+  color: var(--ff-brand-ink);
   font-weight: 600;
 }
 .error,
 .success {
   padding: 15px;
   border-radius: 7px;
-  background: #fdece8;
-  color: #ad4b3c;
-  font-size: 12px;
+  background: var(--ff-bad-soft);
+  color: var(--ff-bad);
+  font-size: 13px;
   line-height: 1.6;
 }
 .success {
-  background: #e6f4e8;
-  color: #317047;
+  background: var(--ff-good-soft);
+  color: var(--ff-good);
 }
 .wrap {
   overflow-wrap: anywhere;
@@ -521,7 +595,7 @@ td strong {
   opacity: 0.55;
 }
 .chart-dot {
-  fill: #16785c;
+  fill: var(--ff-brand);
 }
 .chart svg {
   display: block;
@@ -530,38 +604,38 @@ td strong {
   touch-action: pan-y;
 }
 .chart svg:focus-visible {
-  outline: 2px solid #16785c;
+  outline: 2px solid var(--ff-brand);
   border-radius: 6px;
 }
 .chart-grid line {
-  stroke: #e4ebe7;
+  stroke: var(--ff-chart-grid);
   stroke-width: 1;
 }
 .chart-axis text {
   font-size: 11px;
-  fill: #7a8982;
+  fill: var(--ff-text-muted);
   font-variant-numeric: tabular-nums;
 }
 .chart-axis .chart-unit {
   font-weight: 600;
 }
 .chart-cursor line {
-  stroke: #9aaaa3;
+  stroke: var(--ff-text-faint);
   stroke-width: 1;
 }
 .chart-cursor circle {
-  fill: #16785c;
-  stroke: white;
+  fill: var(--ff-brand);
+  stroke: var(--ff-surface);
   stroke-width: 2;
 }
 .chart-tip {
   position: absolute;
   transform: translate(12px, -50%);
   pointer-events: none;
-  background: white;
-  border: 1px solid #e0e8e1;
+  background: var(--ff-surface);
+  border: 1px solid var(--ff-border);
   border-radius: 8px;
-  box-shadow: 0 4px 14px rgb(36 59 52 / 12%);
+  box-shadow: var(--ff-shadow-tip);
   padding: 6px 10px;
   white-space: nowrap;
   display: grid;
@@ -572,18 +646,20 @@ td strong {
 }
 .chart-tip strong {
   font-size: 15px;
-  color: #243b34;
+  color: var(--ff-text);
   font-variant-numeric: tabular-nums;
 }
 .chart-tip span {
   font-size: 12px;
-  color: #7a8982;
+  color: var(--ff-text-muted);
 }
 .chart-range {
-  font-family: Manrope;
+  font-family: var(--ff-font-display);
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
   font-size: 22px;
   margin: 15px 0 0;
-  color: #2d6f52;
+  color: var(--ff-brand-ink);
 }
 .chart small {
   display: block;
@@ -598,8 +674,8 @@ td strong {
 .map-canvas {
   height: 560px;
   position: relative;
-  background-color: #f8fbf7;
-  background-image: radial-gradient(#cbd9cb 0.7px, transparent 0.7px);
+  background-color: var(--ff-surface-subtle);
+  background-image: radial-gradient(var(--ff-border-strong) 0.7px, transparent 0.7px);
   background-size: 18px 18px;
   cursor: grab;
 }
@@ -618,9 +694,9 @@ td strong {
   position: absolute;
   bottom: 16px;
   left: 16px;
-  font-size: 10px;
+  font-size: 12px;
   background: #ffffffe0;
-  color: #6c8271;
+  color: var(--ff-text-muted);
   padding: 9px;
   border-radius: 5px;
   pointer-events: none;
@@ -633,7 +709,7 @@ td strong {
   gap: 20px;
 }
 .upload-bar input {
-  font-size: 11px;
+  font-size: 13px;
 }
 .upload-bar label {
   flex: 1;
@@ -643,14 +719,14 @@ td strong {
   display: grid;
   place-items: center;
   background:
-    radial-gradient(ellipse at 20% 10%, #2c6a4d 0, transparent 55%), #103e33;
+    radial-gradient(ellipse at 20% 10%, #2c6a4d 0, transparent 55%), var(--ff-sidebar);
   padding: 25px;
 }
 .login-card {
   width: 420px;
   max-width: 100%;
-  background: #fff;
-  border: 1px solid #dce5d8;
+  background: var(--ff-surface);
+  border: 1px solid var(--ff-border);
   border-radius: 16px;
   padding: 42px;
   box-shadow: 0 20px 90px #031b2140;
@@ -673,17 +749,17 @@ td strong {
 pre {
   max-width: 450px;
   overflow: auto;
-  font-size: 10px;
+  font-size: 12px;
 }
 footer {
   padding: 30px 38px;
-  color: #9da79e;
-  font-size: 10px;
+  color: var(--ff-text-muted);
+  font-size: 12px;
 }
 details summary {
   cursor: pointer;
-  font-size: 10px;
-  color: #427357;
+  font-size: 12px;
+  color: var(--ff-brand-ink);
 }
 @media (min-width: 1600px) {
   .content {
@@ -758,7 +834,7 @@ details summary {
     white-space: nowrap;
   }
   nav a span {
-    font-size: 10px;
+    font-size: 12px;
   }
   .sidebar-bottom {
     padding: 0;
@@ -772,7 +848,7 @@ details summary {
   }
   .topbar {
     height: 45px;
-    font-size: 9px;
+    font-size: 11px;
   }
   .timezone {
     display: none;
@@ -838,7 +914,7 @@ details summary {
     display: flex;
   }
   .notice {
-    font-size: 10px;
+    font-size: 12px;
   }
   footer {
     padding: 20px 16px;
@@ -855,8 +931,8 @@ details summary {
   gap: 3px;
   padding: 12px 14px;
   margin-bottom: 14px;
-  background: #f4f7f5;
-  border: 1px solid #e0e8e1;
+  background: var(--ff-bg);
+  border: 1px solid var(--ff-border);
   border-radius: 8px;
 }
 .profile-current .muted {
@@ -865,5 +941,5 @@ details summary {
 }
 .profile-current strong {
   font-size: 15px;
-  color: #226044;
+  color: var(--ff-brand-ink);
 }

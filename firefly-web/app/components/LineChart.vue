@@ -244,7 +244,7 @@ const tipSide = computed(() =>
               v-else
               :d="s.d"
               fill="none"
-              stroke="#16785c"
+              stroke="var(--ff-chart-line)"
               stroke-width="2"
               stroke-linejoin="round"
               stroke-linecap="round"

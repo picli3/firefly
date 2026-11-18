@@ -313,10 +313,10 @@ async function verify() {
   width: min(860px, 94vw);
   max-height: 92vh;
   padding: 0;
-  border: 1px solid #dce7dc;
+  border: 1px solid var(--ff-border);
   border-radius: 14px;
-  color: #243b34;
-  background: #fff;
+  color: var(--ff-text);
+  background: var(--ff-surface);
   box-shadow: 0 24px 100px #06291b45;
 }
 .gateway-dialog::backdrop {
@@ -330,10 +330,10 @@ async function verify() {
   justify-content: space-between;
   gap: 16px;
   padding: 22px 26px;
-  background: #f8fbf7;
+  background: var(--ff-surface-subtle);
 }
 .dialog-heading {
-  border-bottom: 1px solid #e3ece4;
+  border-bottom: 1px solid var(--ff-border);
 }
 .dialog-heading p:last-child {
   margin: 8px 0 0;
@@ -342,7 +342,7 @@ async function verify() {
   padding: 24px 26px;
 }
 .dialog-footer {
-  border-top: 1px solid #e3ece4;
+  border-top: 1px solid var(--ff-border);
 }
 .span-2 {
   grid-column: 1/-1;
@@ -350,7 +350,7 @@ async function verify() {
 .provision-section {
   margin-top: 28px;
   padding-top: 20px;
-  border-top: 1px solid #e3ece4;
+  border-top: 1px solid var(--ff-border);
 }
 .provision-section h3 {
   font-size: 15px;
@@ -363,7 +363,7 @@ async function verify() {
   margin-bottom: 20px;
 }
 .connection-details dt {
-  color: #7b8d82;
+  color: var(--ff-text-muted);
 }
 .connection-details dd {
   margin: 0;
@@ -373,12 +373,12 @@ async function verify() {
   width: 100%;
   height: 230px;
   resize: vertical;
-  border: 1px solid #cadbce;
+  border: 1px solid var(--ff-border-strong);
   border-radius: 8px;
-  background: #f6faf6;
+  background: var(--ff-surface-subtle);
   padding: 14px;
-  font-size: 11px;
-  color: #244b37;
+  font-size: 12px;
+  color: var(--ff-text);
   margin: 12px 0;
 }
 .dialog-content > .actions {
