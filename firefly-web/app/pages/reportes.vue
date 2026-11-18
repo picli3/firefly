@@ -92,12 +92,25 @@ const stale = computed(() => {
               {{ l.name || l.device_id }}
             </option>
           </select></label
-        ><button class="primary" :disabled="busy">
-          {{ busy ? "Consultando…" : "Consultar reporte" }}
-        </button>
+        >
+        <UButton
+          type="submit"
+          icon="i-lucide-search"
+          :loading="busy"
+          :label="busy ? 'Consultando…' : 'Consultar reporte'"
+          class="filter-submit"
+        />
       </div>
     </form>
-    <p v-if="error" class="error" role="alert">{{ error }}</p>
+    <UAlert
+      v-if="error"
+      class="page-alert"
+      color="error"
+      variant="subtle"
+      icon="i-lucide-circle-x"
+      :description="error"
+      role="alert"
+    />
     <section v-if="preview" class="panel">
       <div class="panel-heading">
         <h2>
@@ -105,28 +118,45 @@ const stale = computed(() => {
           {{ preview.test_count }} resultados
         </h2>
         <div v-if="!stale" class="actions">
-          <a class="secondary" :href="'/api/reports/report.pdf?' + appliedQuery"
-            >Descargar PDF mensual</a
-          ><a
-            class="secondary"
+          <UButton
+            :href="'/api/reports/report.pdf?' + appliedQuery"
+            external
+            icon="i-lucide-file-down"
+            label="PDF mensual"
+          />
+          <UButton
             :href="'/api/reports/measurements.csv?' + appliedQuery"
-            >CSV mediciones</a
-          ><a class="secondary" :href="'/api/reports/tests.csv?' + appliedQuery"
-            >CSV pruebas</a
-          >
+            external
+            color="neutral"
+            variant="outline"
+            icon="i-lucide-file-spreadsheet"
+            label="CSV mediciones"
+          />
+          <UButton
+            :href="'/api/reports/tests.csv?' + appliedQuery"
+            external
+            color="neutral"
+            variant="outline"
+            icon="i-lucide-file-spreadsheet"
+            label="CSV pruebas"
+          />
         </div>
-        <span v-else class="pill warn"
-          >Filtros modificados: vuelve a consultar</span
-        >
+        <UBadge
+          v-else
+          color="warning"
+          variant="subtle"
+          icon="i-lucide-refresh-cw"
+          label="Filtros modificados: vuelve a consultar"
+        />
       </div>
-      <div class="notice">
-        Vista previa: hasta {{ preview.preview_limit }} filas por tipo. Las
-        descargas incluyen todas las filas del filtro, hasta 50.000 por tipo;
-        reduce el rango si se supera. Los datos sin hora de medición se filtran
-        por recepción. El PDF sigue la plantilla mensual: los cuadros usan
-        únicamente el rango y los filtros seleccionados; no completan meses sin
-        datos.
-      </div>
+      <UAlert
+        class="panel-alert"
+        color="neutral"
+        variant="subtle"
+        icon="i-lucide-info"
+        :title="`Vista previa: hasta ${preview.preview_limit} filas por tipo`"
+        description="Las descargas incluyen todas las filas del filtro, hasta 50.000 por tipo; reduce el rango si se supera. Los datos sin hora de medición se filtran por recepción. El PDF sigue la plantilla mensual: los cuadros usan únicamente el rango y los filtros seleccionados; no completan meses sin datos."
+      />
       <div class="table-scroll">
         <table>
           <thead>
@@ -162,7 +192,7 @@ const stale = computed(() => {
             </tr>
           </tbody>
         </table>
-        <h3 class="form-panel">Resultados de pruebas</h3>
+        <h3 class="table-section-title">Resultados de pruebas</h3>
         <table>
           <thead>
             <tr>
@@ -180,7 +210,13 @@ const stale = computed(() => {
                 {{ dateText(r.fecha_medicion || r.fecha_recepcion)
                 }}<small>{{ r.origen_fecha }}</small>
               </td>
-              <td>{{ r.result }}</td>
+              <td>
+                <UBadge
+                  :color="r.result === 'PASS' ? 'success' : 'error'"
+                  variant="subtle"
+                  :label="r.result"
+                />
+              </td>
               <td>{{ r.duration_s }} s</td>
               <td>{{ r.perfil }} · {{ r.config_version ?? "Desconocida" }}</td>
             </tr>
@@ -194,6 +230,7 @@ const stale = computed(() => {
       </div>
     </section>
     <div v-else class="panel empty">
+      <UIcon name="i-lucide-file-search" class="empty-icon" />
       <strong>Define el periodo del informe</strong>
       <p>
         Los reportes conservan la ubicación y el perfil conocidos en cada
