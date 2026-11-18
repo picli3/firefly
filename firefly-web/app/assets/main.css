@@ -1,6 +1,77 @@
+/* Tailwind 4 + Nuxt UI. Sus estilos van en capas (@layer), así que las reglas
+   propias de este archivo, sin capa, siguen teniendo prioridad. */
+@import "tailwindcss";
+@import "@nuxt/ui";
+
 /* Fuentes empaquetadas localmente: la web funciona sin internet (Orange Pi). */
 @import "@fontsource-variable/dm-sans";
 @import "@fontsource-variable/manrope";
+
+/* Escalas de color FireFly para Nuxt UI (primary = firefly, neutral = sage). */
+@theme static {
+  --font-sans: "DM Sans Variable", "DM Sans", system-ui, sans-serif;
+  --font-display: "Manrope Variable", Manrope, system-ui, sans-serif;
+
+  --color-firefly-50: #effaf4;
+  --color-firefly-100: #d8f2e4;
+  --color-firefly-200: #b4e4cb;
+  --color-firefly-300: #82cfab;
+  --color-firefly-400: #4fb387;
+  --color-firefly-500: #2c976c;
+  --color-firefly-600: #16785c;
+  --color-firefly-700: #12614b;
+  --color-firefly-800: #124e3e;
+  --color-firefly-900: #103e33;
+  --color-firefly-950: #08241d;
+
+  --color-sage-50: #f8fbf7;
+  --color-sage-100: #f0f2ee;
+  --color-sage-200: #e0e8e1;
+  --color-sage-300: #cbd9cb;
+  --color-sage-400: #9aaaa3;
+  --color-sage-500: #7a8982;
+  --color-sage-600: #5f6e67;
+  --color-sage-700: #415c4d;
+  --color-sage-800: #2f4840;
+  --color-sage-900: #243b34;
+  --color-sage-950: #142520;
+}
+
+/* Nuxt UI: tono principal 600 (contraste AA sobre blanco) y radios FireFly. */
+:root {
+  --ui-primary: var(--ui-color-primary-600);
+  --ui-success: var(--ui-color-success-700);
+  --ui-text: var(--ui-color-neutral-900);
+  --ui-text-muted: var(--ui-color-neutral-600);
+  --ui-bg: #ffffff;
+  --ui-border: var(--ui-color-neutral-200);
+  --ui-radius: 0.4375rem;
+}
+
+/* El reset de Tailwind (preflight) quita márgenes y pesos que las páginas
+   actuales daban por supuestos. Se restauran mientras se migra cada página. */
+@layer base {
+  p,
+  dl,
+  pre {
+    margin: 0 0 1em;
+  }
+  h2,
+  h3 {
+    font-weight: 700;
+  }
+  h3 {
+    margin-bottom: 1em;
+  }
+  ul {
+    list-style: disc;
+    padding-left: 1.4em;
+    margin: 0 0 1em;
+  }
+  details summary {
+    list-style: revert;
+  }
+}
 
 /*
  * Tokens de diseño FireFly. Todos los colores de la interfaz salen de aquí;

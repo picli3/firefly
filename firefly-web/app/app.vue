@@ -3,6 +3,7 @@ const { user, admin, logout } = useSession();
 const route = useRoute();
 </script>
 <template>
+  <UApp :toaster="{ position: 'bottom-right' }">
   <div v-if="route.path === '/login'" class="login-shell"><NuxtPage /></div>
   <div v-else class="workspace">
     <aside class="sidebar">
@@ -40,4 +41,5 @@ const route = useRoute();
       </footer>
     </main>
   </div>
+  </UApp>
 </template>
