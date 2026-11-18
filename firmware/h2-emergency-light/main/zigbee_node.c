@@ -4,6 +4,7 @@
 
 #include "app_config.h"
 #include "battery_test.h"
+#include "battery_config.h"
 #include "esp_check.h"
 #include "esp_log.h"
 #include "freertos/FreeRTOS.h"
@@ -43,12 +44,12 @@ static esp_err_t send_command(uint8_t command_id, const void *payload, uint16_t 
     return ESP_OK;
 }
 
-esp_err_t zigbee_node_send_telemetry(const emergency_telemetry_t *sample)
+esp_err_t zigbee_node_send_telemetry(const emergency_telemetry_v2_t *sample)
 {
     return send_command(EMERGENCY_CMD_TELEMETRY, sample, sizeof(*sample));
 }
 
-esp_err_t zigbee_node_send_test_report(const battery_test_report_t *report)
+esp_err_t zigbee_node_send_test_report(const battery_test_report_v2_t *report)
 {
     return send_command(EMERGENCY_CMD_TEST_REPORT, report, sizeof(*report));
 }
@@ -58,6 +59,11 @@ bool zigbee_node_is_joined(void)
     return s_joined;
 }
 
+esp_err_t zigbee_node_send_config_ack(const battery_config_ack_t *ack)
+{
+    return send_command(EMERGENCY_CMD_BATTERY_CONFIG_ACK, ack, sizeof(*ack));
+}
+
 static esp_err_t action_handler(esp_zb_core_action_callback_id_t callback_id, const void *message)
 {
     if (callback_id != ESP_ZB_CORE_CMD_CUSTOM_CLUSTER_REQ_CB_ID) return ESP_OK;
@@ -65,6 +71,14 @@ static esp_err_t action_handler(esp_zb_core_action_callback_id_t callback_id, co
     ESP_RETURN_ON_FALSE(msg && msg->info.status == ESP_ZB_ZCL_STATUS_SUCCESS, ESP_ERR_INVALID_ARG, TAG,
                         "Invalid Zigbee command");
     if (msg->info.cluster != EMERGENCY_CLUSTER_ID) return ESP_OK;
+
+    if (msg->info.command.id == EMERGENCY_CMD_BATTERY_CONFIG) {
+        ESP_RETURN_ON_FALSE(msg->data.value && msg->data.size == sizeof(battery_config_request_t),
+                            ESP_ERR_INVALID_SIZE, TAG, "Invalid battery configuration size");
+        battery_config_request_t request;
+        memcpy(&request, msg->data.value, sizeof(request));
+        return battery_config_receive(&request);
+    }
 
     if (msg->info.command.id == EMERGENCY_CMD_START_TEST) {
         ESP_RETURN_ON_FALSE(msg->data.size == sizeof(uint16_t), ESP_ERR_INVALID_SIZE, TAG,

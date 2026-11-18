@@ -6,7 +6,7 @@
 #include "emergency_protocol.h"
 #include "esp_err.h"
 
-typedef esp_err_t (*battery_test_report_sender_t)(const battery_test_report_t *report);
+typedef esp_err_t (*battery_test_report_sender_t)(const battery_test_report_v2_t *report);
 typedef void (*battery_test_wake_callback_t)(void);
 typedef bool (*battery_test_transport_ready_t)(void);
 

@@ -5,6 +5,7 @@
 #include <string.h>
 
 #include "app_config.h"
+#include "battery_config.h"
 #include "esp_check.h"
 #include "esp_log.h"
 #include "esp_timer.h"
@@ -15,6 +16,7 @@
 #include "relay.h"
 
 typedef struct {
+    battery_config_snapshot_t config;
     uint16_t test_id;
     uint16_t duration_s;
     uint16_t voltage_before_mv;
@@ -35,7 +37,7 @@ static battery_test_stats_t s_stats;
 static battery_test_schedule_t s_schedule;
 static bool s_schedule_valid;
 static int64_t s_schedule_due_us;
-static battery_test_report_t s_pending_report;
+static battery_test_report_v2_t s_pending_report;
 static bool s_pending_report_valid;
 static int64_t s_report_retry_due_us;
 static uint16_t s_last_voltage_mv;
@@ -64,7 +66,7 @@ static void persist_schedule(const battery_test_schedule_t *schedule)
     }
 }
 
-static void persist_pending_report(const battery_test_report_t *report)
+static void persist_pending_report(const battery_test_report_v2_t *report)
 {
     nvs_handle_t nvs;
     if (nvs_open("battery_test", NVS_READWRITE, &nvs) == ESP_OK) {
@@ -97,20 +99,31 @@ static void load_pending_report(void)
     size_t size = sizeof(s_pending_report);
     if (nvs_open("battery_test", NVS_READONLY, &nvs) == ESP_OK) {
         if (nvs_get_blob(nvs, "report", &s_pending_report, &size) == ESP_OK &&
-            size == sizeof(s_pending_report) && s_pending_report.version == EMERGENCY_TEST_PROTOCOL_VERSION) {
+            size == sizeof(s_pending_report) && s_pending_report.report.version == EMERGENCY_TEST_PROTOCOL_VERSION_V2) {
             // An older firmware may have saved this report under the previous ID.
-            s_pending_report.device_id = s_device_id;
+            s_pending_report.report.device_id = s_device_id;
             s_pending_report_valid = true;
-            ESP_LOGW(TAG, "Restored pending report for test %u", s_pending_report.test_id);
+            ESP_LOGW(TAG, "Restored pending report for test %u", s_pending_report.report.test_id);
+        } else if (size == sizeof(battery_test_report_t)) {
+            /* Migrate a saved v1 result without inventing its configuration revision. */
+            battery_test_report_t old;
+            size = sizeof(old);
+            if (nvs_get_blob(nvs, "report", &old, &size) == ESP_OK &&
+                old.version == EMERGENCY_TEST_PROTOCOL_VERSION) {
+                old.version = EMERGENCY_TEST_PROTOCOL_VERSION_V2;
+                old.device_id = s_device_id;
+                s_pending_report = (battery_test_report_v2_t){.report = old};
+                s_pending_report_valid = true;
+            }
         }
         nvs_close(nvs);
     }
 }
 
-static battery_test_report_t make_report(const battery_test_stats_t *stats, uint8_t forced_result)
+static battery_test_report_v2_t make_report(const battery_test_stats_t *stats, uint8_t forced_result)
 {
     battery_test_report_t report = {
-        .version = EMERGENCY_TEST_PROTOCOL_VERSION,
+        .version = EMERGENCY_TEST_PROTOCOL_VERSION_V2,
         .result = forced_result,
         .test_id = stats->test_id,
         .device_id = s_device_id,
@@ -128,17 +141,18 @@ static battery_test_report_t make_report(const battery_test_stats_t *stats, uint
     }
     if (forced_result == BATTERY_TEST_PASS) {
         if (stats->sample_count == 0 || report.voltage_min_mv == 0) report.result = BATTERY_TEST_SENSOR_INVALID;
-        else if (report.voltage_min_mv < APP_TEST_MIN_VOLTAGE_MV) report.result = BATTERY_TEST_LOW_VOLTAGE;
+        else if (report.voltage_min_mv < stats->config.thresholds.test_min_mv) report.result = BATTERY_TEST_LOW_VOLTAGE;
         else if (report.current_peak_ma < APP_TEST_MIN_CURRENT_MA) report.result = BATTERY_TEST_LOW_CURRENT;
         else if (report.temperature_max_centi_c != INT16_MIN &&
                  report.temperature_max_centi_c >= APP_TEST_MAX_TEMPERATURE_CC) {
             report.result = BATTERY_TEST_HIGH_TEMPERATURE;
         }
     }
-    return report;
+    return (battery_test_report_v2_t){.report = report, .config_version = stats->config.revision,
+        .config_capable = 1, .boot_id = battery_config_boot_id()};
 }
 
-static void send_report(const battery_test_report_t *report)
+static void send_report(const battery_test_report_v2_t *report)
 {
     esp_err_t status = s_report_sender(report);
     xSemaphoreTake(s_mutex, portMAX_DELAY);
@@ -152,7 +166,7 @@ static void send_report(const battery_test_report_t *report)
     xSemaphoreGive(s_mutex);
     persist_pending_report(status == ESP_OK ? NULL : report);
     if (status == ESP_ERR_INVALID_STATE) {
-        ESP_LOGW(TAG, "Test %u report not sent: Zigbee network unavailable", report->test_id);
+        ESP_LOGW(TAG, "Test %u report not sent: Zigbee network unavailable", report->report.test_id);
     }
 }
 
@@ -162,17 +176,18 @@ static void stop_test(uint8_t result)
 
     xSemaphoreTake(s_mutex, portMAX_DELAY);
     bool was_active = s_active;
+    if (was_active) battery_config_end_test();
     s_active = false;
     s_end_us = 0;
     battery_test_stats_t stats = s_stats;
     xSemaphoreGive(s_mutex);
 
     if (!was_active) return;
-    battery_test_report_t report = make_report(&stats, result);
+    battery_test_report_v2_t report = make_report(&stats, result);
     if (s_wake_telemetry) s_wake_telemetry();
     send_report(&report);
     ESP_LOGI(TAG, "Battery test %u stopped; result=%u, samples=%u, relay returned to NC",
-             report.test_id, report.result, report.sample_count);
+             report.report.test_id, report.report.result, report.report.sample_count);
 }
 
 static void send_rejected_report(uint16_t test_id, uint16_t duration_s, uint8_t result)
@@ -184,7 +199,8 @@ static void send_rejected_report(uint16_t test_id, uint16_t duration_s, uint8_t 
         .voltage_min_mv = UINT16_MAX,
         .temperature_max_centi_c = INT16_MIN,
     };
-    battery_test_report_t report = make_report(&stats, result);
+    battery_config_snapshot(&stats.config);
+    battery_test_report_v2_t report = make_report(&stats, result);
     send_report(&report);
 }
 
@@ -216,6 +232,7 @@ esp_err_t battery_test_start(uint16_t duration_s, uint16_t test_id)
         .temperature_max_centi_c = INT16_MIN,
     };
     s_end_us = esp_timer_get_time() + (int64_t)duration_s * 1000000LL;
+    battery_config_begin_test(&s_stats.config);
     s_active = true;
     xSemaphoreGive(s_mutex);
 
@@ -289,7 +306,7 @@ static void battery_test_task(void *arg)
             (void)battery_test_start(schedule.duration_s, schedule.test_id);
         }
         if (s_pending_report_valid && s_transport_ready() && now >= s_report_retry_due_us) {
-            battery_test_report_t report;
+            battery_test_report_v2_t report;
             xSemaphoreTake(s_mutex, portMAX_DELAY);
             report = s_pending_report;
             xSemaphoreGive(s_mutex);

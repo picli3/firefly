@@ -2,6 +2,7 @@
 #include <stdint.h>
 
 #include "battery_test.h"
+#include "battery_config.h"
 #include "esp_crc.h"
 #include "esp_err.h"
 #include "esp_log.h"
@@ -22,11 +23,10 @@ void app_main(void)
     ESP_LOGI("emergency_node", "Device ID: %08" PRIx32, device_id);
 
     esp_err_t nvs_status = nvs_flash_init();
-    if (nvs_status == ESP_ERR_NVS_NO_FREE_PAGES || nvs_status == ESP_ERR_NVS_NEW_VERSION_FOUND) {
-        ESP_ERROR_CHECK(nvs_flash_erase());
-        nvs_status = nvs_flash_init();
-    }
+    /* Never silently erase battery profiles, Zigbee identity or saved schedules. */
     ESP_ERROR_CHECK(nvs_status);
+
+    ESP_ERROR_CHECK(battery_config_init(device_id, zigbee_node_send_config_ack));
 
     ESP_ERROR_CHECK(battery_test_init(device_id, zigbee_node_send_test_report, zigbee_node_is_joined,
                                       telemetry_wake));

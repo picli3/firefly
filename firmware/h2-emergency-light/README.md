@@ -2,8 +2,9 @@
 
 Firmware ESP-IDF para medir tension, corriente, potencia y temperatura de una
 luminaria, controlar su prueba de bateria y enviar telemetria al C6. El H2
-funciona como router Zigbee 3.0. Los umbrales actuales son fijos para una bateria
-de 6 V; todavia no se pueden cambiar remotamente por lampara.
+funciona como router Zigbee 3.0. Cada nodo admite siete umbrales de bateria
+configurables desde FireFly Web, por MQTT al C6 y Zigbee al H2. El H2 confirma
+solo despues de guardar y aplicar el perfil completo.
 
 ## Estructura del codigo
 
@@ -15,6 +16,7 @@ de 6 V; todavia no se pueden cambiar remotamente por lampara.
 | `ntc.c/.h` | ADC, calibracion y conversion del termistor |
 | `relay.c/.h` | Entrada AC, rele fail-safe y boton QA |
 | `battery_test.c/.h` | Agenda, ejecucion, NVS, estadisticas y reporte de pruebas |
+| `battery_config.c/.h` | Perfiles por nodo, revision, CRC, NVS atomica y ACK |
 | `telemetry.c/.h` | Muestreo, SoH, alertas e intervalo adaptativo |
 | `zigbee_node.c/.h` | Router, asociacion, comandos y transmision Zigbee |
 
@@ -135,11 +137,11 @@ temperatura maxima y resultado. Si el envio falla, el H2 conserva un reporte
 pendiente en NVS y reintenta cuando Zigbee esta disponible. Un reporte perdido
 en el C6 no demuestra que el rele siga activo.
 
-Para el resultado de la prueba se usan los limites fijos de **5,25 V** de
-tension minima, **50 mA** de pico de magnitud de corriente y **40 °C** de
-temperatura maxima. `LOW_VOLTAGE` en una bateria de 4 V puede deberse a ese
-perfil de 6 V. Los umbrales de tension y temperatura **no cortan por si solos**
-una prueba activa; se aplican al evaluar sus mediciones.
+La tension minima de la prueba es `test_min_mv` del perfil activo al iniciarla.
+La corriente minima sigue siendo **50 mA** de pico de magnitud y la temperatura
+maxima **40 °C**. Sin perfil confirmado se conserva el limite heredado de
+**5,25 V**, que puede producir `LOW_VOLTAGE` en una bateria de 4 V.
+Los umbrales **no cortan por si solos** una prueba activa; evaluan sus mediciones.
 
 GPIO2 no puede alimentar una bobina. La PCB usa un MOSFET y diodo flyback para
 accionar la bobina. En esta revision:
@@ -195,7 +197,8 @@ circular por `VCC`, GND ni por cables Dupont de senal.
 El `device_id` se calcula con CRC32 sobre los ocho bytes de la direccion Zigbee
 EUI-64 y se muestra al arrancar. Al actualizar desde la version anterior, cambia
 el identificador en los nuevos registros; los CSV historicos no se modifican.
-El formato Zigbee sigue usando 32 bits, por lo que no se necesita actualizar el C6.
+El identificador conserva sus 32 bits. Esta revision usa tramas v2: actualizar
+tambien el C6 para recibirlas; el C6 nuevo sigue aceptando nodos v1.
 
 El dispositivo funciona como router Zigbee (`ZCZR`), usa canal 15 y envia la
 telemetria descrita en `../PROTOCOL.md` al coordinador `0x0000`. Mantiene la radio
@@ -226,15 +229,61 @@ esta unido. Las condiciones se evaluan en este orden:
 | Condicion | Intervalo |
 |---|---:|
 | Prueba activa | 5 s |
-| Alerta: tension valida por debajo de 5,50 V o temperatura valida de al menos 40 °C | 10 s |
-| Sin alerta, tension reportada por debajo de 5,85 V (incluye cero si falla el INA226) | 30 s |
+| Alerta: tension valida por debajo de `alert_mv` o temperatura valida de al menos 40 °C | 10 s |
+| Sin alerta, tension reportada por debajo de `attention_mv` (incluye cero si falla el INA226) | 30 s |
 | Resto | 60 s |
 
-`UVLO` indica una medicion valida por debajo de 5,25 V. `sensor_valid` requiere
+`UVLO` indica una medicion valida por debajo de `critical_mv`. `sensor_valid` requiere
 lecturas validas tanto del INA226 como del NTC. El valor `soh_pct` se estima
 solo a partir de la tension y del estado AC; no mide la capacidad ni el estado
-de salud real de la bateria. En una lampara de 4 V, el perfil fijo puede producir
+de salud real de la bateria. Sin configurar una lampara de 4 V, el perfil heredado puede producir
 `alert`, `UVLO`, `soh_pct=0` y reportes cada 10 s sin que eso diagnostique la bateria.
+
+## Configuracion remota de bateria (FW-001)
+
+El comando Zigbee `0x05`, version 1, transporta UUID, revision positiva por nodo
+y los siete enteros en mV: `attention_mv`, `alert_mv`, `critical_mv`,
+`test_min_mv`, `full_mv`, `ac_empty_mv`, `dc_empty_mv`. La validacion coincide
+con la web: `critical <= alert < attention <= full`, vacios menores que `full`
+y `test_min <= full`; todos entre 1 y 65535. No se deduce quimica ni tension
+nominal. Elegir los valores segun la bateria real, no solo su etiqueta de voltaje.
+
+Un unico blob `battery_config/state` de NVS contiene formato, perfil activo,
+pendiente, revisiones, UUID y CRC32. Solo se actualiza el estado RAM tras un
+commit correcto. Los duplicados exactos del activo/pendiente no escriben NVS;
+revisiones antiguas y cambios de contenido/UUID para una revision se rechazan.
+Una revision pendiente superior sustituye la anterior, sin restaurar valores viejos.
+
+Si la prueba esta activa, el cambio se guarda pendiente (`deferred`). Al terminar
+se aplica y confirma (`applied`); si falla el commit, permanece pendiente y se
+reintenta. El reporte conserva los umbrales, revision y boot ID del inicio.
+Tras reinicio, un pendiente integro se aplica con la prueba ya desactivada.
+El ACK `0x06` informa `applied`, `deferred` o `rejected` y motivo. El H2 vuelve
+a anunciar sus ACK persistidos cada 30 s para recuperar desconexiones del C6.
+
+Telemetria v2 (33 bytes) y reporte v2 (35 bytes) incluyen capacidad, revision y
+boot ID aleatorio por arranque. Revision cero significa perfil heredado no
+confirmado; MQTT omite `config_version` hasta que exista un perfil aplicado.
+Los defaults heredados siguen siendo 5850/5500/5250/5250/6300/5500/5250 mV,
+en el orden anterior. La estimacion usa `(V-vacio)*100/(full-vacio)`, limitada
+a 0–100; no integra corriente ni mide capacidad real.
+
+Una NVS de configuracion corrupta se conserva y se rechazan nuevos cambios
+con motivo `storage`; no se borra automaticamente. Tampoco se borra toda NVS
+si falla su inicializacion. Diagnosticar/respaldar antes de una recuperacion manual.
+Para actualizar routers existentes basta `idf.py -p PUERTO flash`: no borrar
+`zb_storage`, NVS ni la red del C6 para esta actualizacion.
+
+Pruebas de software, desde este proyecto:
+
+```bash
+python -m unittest discover -s tools/tests -p 'test_battery_config.py' -v
+```
+
+Ejecutan codigo C real con NVS/RTOS sustituidos: perfiles independientes,
+duplicados, invalidos, revision vieja, fallos set/commit, reinicio, CRC,
+diferido y revision del reporte; tambien medidas con signo y SoH en 4/6/12 V.
+Los perfiles del ensayo host son sinteticos, no recomendaciones de produccion.
 
 ## Compilar con ESP-IDF 5.5
 
