@@ -36,29 +36,82 @@ const filtered = computed(() =>
             battery: !l.ac && !!l.latest,
             testing: l.testing,
             offline: !l.connected,
+            online: l.connected,
             pending: l.pending_assignment,
           } as any
         )[filters.state]),
   ),
 );
+// Indicadores: al pulsar uno se filtra la tabla por ese estado.
 const stats = computed(() => [
-  { label: "Lámparas registradas", value: rows.value?.length || 0, color: "" },
+  {
+    label: "Lámparas registradas",
+    value: rows.value?.length || 0,
+    color: "",
+    icon: "i-lucide-lamp",
+    state: "",
+  },
   {
     label: "En línea",
     value: rows.value?.filter((l) => l.connected).length || 0,
     color: "green",
+    icon: "i-lucide-wifi",
+    state: "online",
   },
   {
     label: "Con alertas",
     value: rows.value?.filter((l) => l.alert || l.critical).length || 0,
     color: "amber",
+    icon: "i-lucide-triangle-alert",
+    state: "alert",
   },
   {
     label: "Sin comunicación",
     value: rows.value?.filter((l) => !l.connected).length || 0,
     color: "gray",
+    icon: "i-lucide-wifi-off",
+    state: "offline",
   },
 ]);
+const filtersActive = computed(
+  () => Object.values(filters).some(Boolean) || !!search.value,
+);
+function clearFilters() {
+  Object.assign(filters, { site: "", building: "", level: "", gateway: "", state: "" });
+  search.value = "";
+}
+// Orden de la tabla (clic en la cabecera). Por defecto, lo que requiere atención primero.
+type SortKey = "name" | "level" | "state" | "voltage" | "seen";
+const sort = reactive<{ key: SortKey; dir: 1 | -1 }>({ key: "state", dir: 1 });
+function setSort(key: SortKey) {
+  if (sort.key === key) sort.dir = sort.dir === 1 ? -1 : 1;
+  else Object.assign(sort, { key, dir: 1 });
+}
+const severity = (l: any) =>
+  l.critical ? 0 : l.alert ? 1 : !l.connected ? 2 : !l.ac && l.latest ? 3 : 4;
+const sortKeys: Record<SortKey, (l: any) => string | number> = {
+  name: (l) => (l.name || l.device_id || "").toLowerCase(),
+  level: (l) => `${l.level || "~"} ${l.place || ""}`.toLowerCase(),
+  state: (l) => severity(l),
+  voltage: (l) => l.latest?.voltage_mv ?? -1,
+  seen: (l) => l.age_s ?? Number.MAX_SAFE_INTEGER,
+};
+const sorted = computed(() => {
+  const f = sortKeys[sort.key];
+  return [...filtered.value].sort((a, b) => {
+    const x = f(a),
+      y = f(b);
+    return (x < y ? -1 : x > y ? 1 : 0) * sort.dir;
+  });
+});
+const sortIcon = (k: SortKey) =>
+  sort.key !== k
+    ? "i-lucide-arrow-up-down"
+    : sort.dir === 1
+      ? "i-lucide-arrow-up"
+      : "i-lucide-arrow-down";
+const ariaSort = (k: SortKey) =>
+  sort.key !== k ? "none" : sort.dir === 1 ? "ascending" : "descending";
 let events: EventSource | undefined;
 onMounted(() => {
   events = new EventSource("/api/events");
@@ -82,19 +135,26 @@ onBeforeUnmount(() => events?.close());
           Cada luminaria, su ubicación y su última información recibida.
         </p>
       </div>
-      <span class="pill" :class="live ? 'good' : 'neutral'"
-        >●
-        {{
-          live ? "Actualización en vivo" : "Conectando actualizaciones"
-        }}</span
-      >
+      <UBadge
+        :color="live ? 'success' : 'neutral'"
+        variant="subtle"
+        :icon="live ? 'i-lucide-radio' : 'i-lucide-loader-circle'"
+        :label="live ? 'Actualización en vivo' : 'Conectando actualizaciones'"
+      />
     </div>
     <div class="stats">
-      <div v-for="s in stats" :key="s.label" class="stat">
-        <span>{{ s.label }}</span><strong :class="s.color">{{
-          s.value
-        }}</strong>
-      </div>
+      <button
+        v-for="s in stats"
+        :key="s.label"
+        type="button"
+        class="stat stat-button"
+        :class="{ active: s.state && filters.state === s.state }"
+        :aria-pressed="!!s.state && filters.state === s.state"
+        @click="filters.state = filters.state === s.state ? '' : s.state"
+      >
+        <span class="stat-label"><UIcon :name="s.icon" />{{ s.label }}</span
+        ><strong :class="s.color">{{ s.value }}</strong>
+      </button>
     </div>
     <LocationFilters
       v-model="filters"
@@ -106,27 +166,55 @@ onBeforeUnmount(() => events?.close());
         <h2>
           Luminarias <span class="muted">{{ filtered.length }}</span>
         </h2>
-        <input
-          v-model="search"
-          aria-label="Buscar lámpara"
-          class="search"
-          placeholder="Buscar nombre, identificador o lugar…"
-        />
+        <div class="panel-tools">
+          <UButton
+            v-if="filtersActive"
+            color="neutral"
+            variant="ghost"
+            size="sm"
+            icon="i-lucide-filter-x"
+            label="Limpiar filtros"
+            @click="clearFilters"
+          />
+          <UInput
+            v-model="search"
+            icon="i-lucide-search"
+            aria-label="Buscar lámpara"
+            placeholder="Buscar nombre, identificador o lugar…"
+            class="search-input"
+          />
+        </div>
       </div>
-      <div class="table-scroll">
+      <!-- Escritorio y tablet: tabla ordenable -->
+      <div class="table-scroll overview-table">
         <table>
           <thead>
             <tr>
-              <th>Lámpara</th>
-              <th>Ubicación</th>
-              <th>Estado</th>
-              <th>Batería</th>
-              <th>Última comunicación</th>
-              <th></th>
+              <th
+                v-for="c in [
+                  ['name', 'Lámpara'],
+                  ['level', 'Ubicación'],
+                  ['state', 'Estado'],
+                  ['voltage', 'Batería'],
+                  ['seen', 'Última comunicación'],
+                ] as const"
+                :key="c[0]"
+                :aria-sort="ariaSort(c[0])"
+              >
+                <button type="button" class="th-sort" @click="setSort(c[0])">
+                  {{ c[1] }} <UIcon :name="sortIcon(c[0])" />
+                </button>
+              </th>
+              <th><span class="sr-only">Acciones</span></th>
             </tr>
           </thead>
           <tbody>
-            <tr v-for="l in filtered" :key="l.id">
+            <tr
+              v-for="l in sorted"
+              :key="l.id"
+              class="row-link"
+              @click="navigateTo('/lamparas/' + l.id)"
+            >
               <td>
                 <strong>{{ l.name || "Sin asignar" }}</strong><small
                   class="mono"
@@ -152,41 +240,84 @@ onBeforeUnmount(() => events?.close());
                 }}</small>
               </td>
               <td>
-                {{ dateText(l.last_seen)
-                }}<small v-if="l.age_s !== null"
-                  >Hace {{ Math.max(0, Math.floor(l.age_s)) }} s</small
-                >
+                {{ dateText(l.last_seen) }}<small>{{ agoText(l.age_s) }}</small>
               </td>
               <td>
-                <NuxtLink :to="'/lamparas/' + l.id" class="text-link"
-                  >Ver ficha →</NuxtLink
-                >
-              </td>
-            </tr>
-            <tr v-if="!filtered.length">
-              <td colspan="6">
-                <div class="empty">
-                  <strong>{{
-                    rows?.length ? "Sin coincidencias" : "Aún no hay lámparas"
-                  }}</strong>
-                  <p>
-                    Registra un gateway y conecta sus dispositivos para comenzar
-                    la supervisión.
-                  </p>
-                  <NuxtLink to="/admin" class="text-link"
-                    >Administrar instalación →</NuxtLink
-                  >
-                </div>
+                <UButton
+                  :to="'/lamparas/' + l.id"
+                  variant="ghost"
+                  size="sm"
+                  trailing-icon="i-lucide-chevron-right"
+                  label="Ver ficha"
+                  @click.stop
+                />
               </td>
             </tr>
           </tbody>
         </table>
       </div>
+      <!-- Móvil: tarjetas -->
+      <ul class="overview-cards">
+        <li v-for="l in sorted" :key="l.id">
+          <NuxtLink :to="'/lamparas/' + l.id" class="lamp-card">
+            <div class="lamp-card-head">
+              <strong>{{ l.name || "Sin asignar" }}</strong>
+              <UIcon name="i-lucide-chevron-right" />
+            </div>
+            <small class="muted"
+              >{{ l.level || "Sin nivel" }} ·
+              {{ l.place || l.building || "Ubicación pendiente" }}</small
+            >
+            <StatusPills :lamp="l" />
+            <div class="lamp-card-data">
+              <span
+                ><UIcon name="i-lucide-battery-medium" />{{
+                  l.latest ? (l.latest.voltage_mv / 1000).toFixed(3) + " V" : "—"
+                }}</span
+              >
+              <span
+                ><UIcon name="i-lucide-thermometer" />{{
+                  l.latest?.flags & 8
+                    ? (l.latest.temperature_centi_c / 100).toFixed(1) + " °C"
+                    : "—"
+                }}</span
+              >
+              <span><UIcon name="i-lucide-clock" />{{ agoText(l.age_s) || "Sin datos" }}</span>
+            </div>
+          </NuxtLink>
+        </li>
+      </ul>
+      <div v-if="!filtered.length" class="empty">
+        <strong>{{
+          rows?.length ? "Sin coincidencias" : "Aún no hay lámparas"
+        }}</strong>
+        <p v-if="rows?.length">Ninguna lámpara cumple los filtros actuales.</p>
+        <p v-else>
+          Registra un gateway y conecta sus dispositivos para comenzar la
+          supervisión.
+        </p>
+        <UButton
+          v-if="rows?.length"
+          color="neutral"
+          variant="outline"
+          icon="i-lucide-filter-x"
+          label="Limpiar filtros"
+          @click="clearFilters"
+        />
+        <UButton
+          v-else
+          to="/admin"
+          variant="ghost"
+          trailing-icon="i-lucide-arrow-right"
+          label="Administrar instalación"
+        />
+      </div>
     </section>
-    <div class="notice">
-      Las lecturas se conservan cuando un dispositivo pierde comunicación.
-      Revisa siempre su fecha; el estado de alimentación no confirma por sí solo
-      que la lámpara ilumina correctamente.
-    </div>
+    <UAlert
+      color="neutral"
+      variant="subtle"
+      icon="i-lucide-info"
+      description="Las lecturas se conservan cuando un dispositivo pierde comunicación. Revisa siempre su fecha; el estado de alimentación no confirma por sí solo que la lámpara ilumina correctamente."
+    />
   </section>
 </template>
