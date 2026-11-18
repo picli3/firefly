@@ -33,6 +33,27 @@ const form = reactive<any>({}),
     ["audits", "Auditoría"],
     ["trash", "Papelera"],
   ];
+const toast = useToast();
+const tabIcons: Record<string, string> = {
+  locations: "i-lucide-map-pin",
+  gateways: "i-lucide-router",
+  profiles: "i-lucide-battery-medium",
+  users: "i-lucide-users",
+  lamps: "i-lucide-lamp",
+  audits: "i-lucide-history",
+  trash: "i-lucide-trash-2",
+};
+const tabItems = tabs.map(([value, label]) => ({ value, label, icon: tabIcons[value] }));
+// Los mensajes de éxito se muestran como notificación; los errores, además, en línea.
+watch(message, (m) => {
+  if (m) toast.add({ title: m, color: "success", icon: "i-lucide-circle-check" });
+});
+const trashOpen = computed({
+  get: () => !!pendingTrash.value,
+  set: (v) => {
+    if (!v) pendingTrash.value = null;
+  },
+});
 function reset(row: any = null) {
   editing.value = row;
   Object.keys(form).forEach((k) => delete form[k]);
@@ -226,50 +247,60 @@ async function changeTrash(row: any, restore = false) {
         </p>
       </div>
     </div>
-    <div class="tabs">
-      <button
-        v-for="t in tabs"
-        :key="t[0]"
-        :class="{ selected: tab === t[0] }"
-        @click="tab = t[0]"
-      >
-        {{ t[1] }}
-      </button>
-    </div>
-    <p v-if="error" class="error" role="alert">{{ error }}</p>
-    <p v-if="message" class="success wrap" role="status">{{ message }}</p>
-    <section
-      v-if="pendingTrash"
-      class="panel"
-      role="alertdialog"
-      aria-labelledby="trash-confirm-title"
+    <UTabs
+      v-model="tab"
+      :items="tabItems"
+      :content="false"
+      variant="link"
+      class="page-tabs"
+      :ui="{ list: 'overflow-x-auto', trigger: 'flex-none' }"
+    />
+    <UAlert
+      v-if="error"
+      class="page-alert"
+      color="error"
+      variant="subtle"
+      icon="i-lucide-circle-x"
+      :description="error"
+      role="alert"
+    />
+    <UModal
+      v-model:open="trashOpen"
+      :title="`¿Enviar «${pendingTrash?.name || pendingTrash?.device_id}» a la papelera?`"
     >
-      <h2 id="trash-confirm-title">
-        ¿Enviar «{{ pendingTrash.name || pendingTrash.device_id }}» a la
-        papelera?
-      </h2>
-      <p>
-        Dejará de aparecer en supervisión y planos. Sus datos e historial se
-        conservarán y podrás restaurarlo. Retira primero sus dispositivos y
-        ubicaciones dependientes.
-      </p>
-      <p v-if="pendingTrash.resource === 'gateways'">
-        Este gateway dejará de aceptar datos en la aplicación y sus credenciales
-        se retirarán del broker.
-      </p>
-      <div class="actions">
-        <button
-          class="primary"
-          :disabled="busy"
-          @click="changeTrash(pendingTrash)"
-        >
-          Confirmar envío a papelera
-        </button>
-        <button class="secondary" :disabled="busy" @click="pendingTrash = null">
-          Cancelar
-        </button>
-      </div>
-    </section>
+      <template #body>
+        <p class="modal-text">
+          Dejará de aparecer en supervisión y planos. Sus datos e historial se
+          conservarán y podrás restaurarlo. Retira primero sus dispositivos y
+          ubicaciones dependientes.
+        </p>
+        <UAlert
+          v-if="pendingTrash?.resource === 'gateways'"
+          color="warning"
+          variant="subtle"
+          icon="i-lucide-triangle-alert"
+          description="Este gateway dejará de aceptar datos en la aplicación y sus credenciales se retirarán del broker."
+        />
+      </template>
+      <template #footer>
+        <div class="modal-actions">
+          <UButton
+            color="neutral"
+            variant="outline"
+            label="Cancelar"
+            :disabled="busy"
+            @click="pendingTrash = null"
+          />
+          <UButton
+            color="error"
+            icon="i-lucide-trash-2"
+            label="Enviar a papelera"
+            :loading="busy"
+            @click="changeTrash(pendingTrash)"
+          />
+        </div>
+      </template>
+    </UModal>
     <div
       v-if="data"
       :class="['audits', 'trash'].includes(tab) ? '' : 'admin-grid'"
@@ -277,13 +308,14 @@ async function changeTrash(row: any, restore = false) {
       <section class="panel">
         <div class="panel-heading">
           <h2>{{ tabs.find((t) => t[0] === tab)?.[1] }}</h2>
-          <button
+          <UButton
             v-if="!['audits', 'trash'].includes(tab)"
-            class="secondary"
+            color="neutral"
+            variant="outline"
+            icon="i-lucide-plus"
+            label="Nuevo"
             @click="reset()"
-          >
-            + Nuevo
-          </button>
+          />
         </div>
         <div class="table-scroll">
           <table>
@@ -336,9 +368,12 @@ async function changeTrash(row: any, restore = false) {
                   >
                 </td>
                 <td v-else-if="tab === 'gateways'">
-                  <span class="pill" :class="row.active ? 'good' : 'neutral'">{{
-                    row.active ? "Habilitado" : "Desactivado"
-                  }}</span><small>{{ dateText(row.last_seen) }}</small>
+                  <UBadge
+                    :color="row.active ? 'success' : 'neutral'"
+                    variant="subtle"
+                    :icon="row.active ? 'i-lucide-circle-check' : 'i-lucide-circle-pause'"
+                    :label="row.active ? 'Habilitado' : 'Desactivado'"
+                  /><small>{{ dateText(row.last_seen) }}</small>
                 </td>
                 <td v-else-if="tab === 'users'">
                   {{ row.role === "admin" ? "Administrador" : "Monitor" }} ·
@@ -354,44 +389,53 @@ async function changeTrash(row: any, restore = false) {
                 </td>
                 <td v-else><StatusPills :lamp="row" /></td>
                 <td>
-                  <button
-                    v-if="tab === 'gateways'"
-                    type="button"
-                    class="text-link"
-                    style="margin-right: 12px"
-                    @click="connection(row)"
-                  >
-                    Conexión
-                  </button>
-                  <NuxtLink
-                    v-if="tab === 'lamps'"
-                    :to="'/lamparas/' + row.id"
-                    class="text-link"
-                    >Asignar →</NuxtLink
-                  ><button
-                    v-else-if="!['audits', 'trash'].includes(tab)"
-                    class="text-link"
-                    @click="reset(row)"
-                  >
-                    {{ tab === "profiles" ? "Nueva versión" : "Editar" }}
-                  </button>
-                  <button
-                    v-if="['locations', 'gateways', 'lamps'].includes(tab)"
-                    class="text-link"
-                    style="margin-left: 12px"
-                    :disabled="busy"
-                    @click="moveToTrash(row)"
-                  >
-                    Enviar a papelera
-                  </button>
-                  <button
-                    v-if="tab === 'trash'"
-                    class="secondary"
-                    :disabled="busy"
-                    @click="changeTrash(row, true)"
-                  >
-                    Restaurar
-                  </button>
+                  <div class="row-actions">
+                    <UButton
+                      v-if="tab === 'gateways'"
+                      size="sm"
+                      variant="ghost"
+                      icon="i-lucide-plug"
+                      label="Conexión"
+                      @click="connection(row)"
+                    />
+                    <UButton
+                      v-if="tab === 'lamps'"
+                      :to="'/lamparas/' + row.id"
+                      size="sm"
+                      variant="ghost"
+                      trailing-icon="i-lucide-arrow-right"
+                      label="Asignar"
+                    />
+                    <UButton
+                      v-else-if="!['audits', 'trash'].includes(tab)"
+                      size="sm"
+                      variant="ghost"
+                      :icon="tab === 'profiles' ? 'i-lucide-copy-plus' : 'i-lucide-pencil'"
+                      :label="tab === 'profiles' ? 'Nueva versión' : 'Editar'"
+                      @click="reset(row)"
+                    />
+                    <UButton
+                      v-if="['locations', 'gateways', 'lamps'].includes(tab)"
+                      size="sm"
+                      color="error"
+                      variant="ghost"
+                      icon="i-lucide-trash-2"
+                      :aria-label="`Enviar ${row.name || row.device_id} a papelera`"
+                      title="Enviar a papelera"
+                      :disabled="busy"
+                      @click="moveToTrash(row)"
+                    />
+                    <UButton
+                      v-if="tab === 'trash'"
+                      size="sm"
+                      color="neutral"
+                      variant="outline"
+                      icon="i-lucide-rotate-ccw"
+                      label="Restaurar"
+                      :loading="busy"
+                      @click="changeTrash(row, true)"
+                    />
+                  </div>
                 </td>
               </tr>
               <tr v-if="!data[tab]?.length">
@@ -575,16 +619,23 @@ async function changeTrash(row: any, restore = false) {
             Las lámparas que publican telemetría se detectan automáticamente.
             Completa su ubicación desde la ficha.
           </p></template
-        ><button class="primary" :disabled="busy">
-          {{ tab === "profiles" ? "Guardar versión" : "Guardar" }}</button
-        ><button
-          v-if="editing"
-          type="button"
-          class="secondary"
-          @click="reset()"
         >
-          Cancelar edición
-        </button>
+        <div class="form-actions">
+          <UButton
+            type="submit"
+            icon="i-lucide-save"
+            :loading="busy"
+            :label="tab === 'profiles' ? 'Guardar versión' : 'Guardar'"
+          />
+          <UButton
+            v-if="editing"
+            type="button"
+            color="neutral"
+            variant="outline"
+            label="Cancelar edición"
+            @click="reset()"
+          />
+        </div>
       </form>
     </div>
   </section>

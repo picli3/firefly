@@ -22,6 +22,7 @@ const level = ref(""),
   plan = ref<any>(null),
   error = ref(""),
   message = ref(""),
+  toast = useToast(),
   selected = ref(""),
   selectedGateway = ref(""),
   kind = ref<"lamp" | "gateway">("lamp"),
@@ -317,6 +318,10 @@ onBeforeUnmount(() => {
   events?.close();
   clearInterval(timer);
 });
+// Los mensajes de éxito se muestran como notificación.
+watch(message, (m) => {
+  if (m) toast.add({ title: m, color: "success", icon: "i-lucide-circle-check" });
+});
 </script>
 <template>
   <section>
@@ -328,12 +333,12 @@ onBeforeUnmount(() => {
           Localiza lámparas y gateways y consulta su comunicación.
         </p>
       </div>
-      <span class="pill" :class="live ? 'good' : 'neutral'"
-        >●
-        {{
-          live ? "Actualización en vivo" : "Actualización interrumpida"
-        }}</span
-      >
+      <UBadge
+        :color="live ? 'success' : 'neutral'"
+        variant="subtle"
+        :icon="live ? 'i-lucide-radio' : 'i-lucide-wifi-off'"
+        :label="live ? 'Actualización en vivo' : 'Actualización interrumpida'"
+      />
     </div>
     <div class="filter-bar">
       <label
@@ -368,22 +373,52 @@ onBeforeUnmount(() => {
           type="file"
           accept=".dxf"
           required /></label
-      ><button class="secondary" :disabled="busy">Cargar como borrador</button>
+      ><UButton
+        type="submit"
+        color="neutral"
+        variant="outline"
+        icon="i-lucide-upload"
+        label="Cargar como borrador"
+        :loading="busy"
+      />
     </form>
-    <p v-if="error" class="error" role="alert">{{ error }}</p>
-    <p v-if="message" class="success" role="status">{{ message }}</p>
+    <UAlert
+      v-if="error"
+      class="page-alert"
+      color="error"
+      variant="subtle"
+      icon="i-lucide-circle-x"
+      :description="error"
+      role="alert"
+    />
     <div v-if="plan" class="map-layout">
       <section class="panel map-panel">
         <div class="panel-heading">
           <h2>{{ plan.filename }}</h2>
           <div class="actions">
-            <span class="pill" :class="plan.active ? 'good' : 'warn'">{{
-              plan.active ? "Plano activo" : "Borrador: revisar posiciones"
-            }}</span><button class="secondary" @click="resetView">
-              Ajustar vista</button
-            ><a class="text-link" :href="'/api/plans/' + planId + '/download'"
-              >DXF ↓</a
-            >
+            <UBadge
+              :color="plan.active ? 'success' : 'warning'"
+              variant="subtle"
+              :icon="plan.active ? 'i-lucide-circle-check' : 'i-lucide-pencil'"
+              :label="plan.active ? 'Plano activo' : 'Borrador: revisar posiciones'"
+            />
+            <UButton
+              color="neutral"
+              variant="outline"
+              size="sm"
+              icon="i-lucide-scan"
+              label="Ajustar vista"
+              @click="resetView"
+            />
+            <UButton
+              :href="'/api/plans/' + planId + '/download'"
+              external
+              color="neutral"
+              variant="ghost"
+              size="sm"
+              icon="i-lucide-download"
+              label="DXF"
+            />
           </div>
         </div>
         <div class="map-legend" aria-label="Leyenda del plano">
@@ -407,9 +442,15 @@ onBeforeUnmount(() => {
           gateway pierde conexión, no se puede confirmar la actividad de sus
           lámparas.
         </p>
-        <p v-for="warning in plan.warnings" :key="warning" class="notice">
-          {{ warning }}
-        </p>
+        <UAlert
+          v-for="warning in plan.warnings"
+          :key="warning"
+          class="panel-alert"
+          color="warning"
+          variant="subtle"
+          icon="i-lucide-triangle-alert"
+          :description="warning"
+        />
         <div class="map-canvas" :class="{ placing }">
           <svg
             ref="svg"
@@ -576,27 +617,33 @@ onBeforeUnmount(() => {
               </option>
             </select></label
           ><template v-if="selectedLamp"
-            ><span
-              class="pill"
-              :class="lampLook(selectedLamp).connected ? 'good' : 'neutral'"
-              >{{ lampLook(selectedLamp).label }}</span
-            >
+            ><UBadge
+              class="self-start"
+              :color="lampLook(selectedLamp).connected ? 'success' : 'neutral'"
+              variant="subtle"
+              :label="lampLook(selectedLamp).label"
+            />
             <p class="small muted">
               Última telemetría: {{ dateText(selectedLamp.last_seen) }}.
               Gateway: {{ selectedLamp.gateway_name }}.
             </p>
-            <StatusPills :lamp="selectedLamp" /><NuxtLink
+            <StatusPills :lamp="selectedLamp" /><UButton
               :to="'/lamparas/' + selected"
-              class="text-link"
-              >Abrir ficha →</NuxtLink
-            ><button
+              class="self-start"
+              variant="ghost"
+              size="sm"
+              trailing-icon="i-lucide-arrow-right"
+              label="Abrir ficha"
+            /><UButton
               v-if="admin"
-              class="secondary"
+              :color="placing ? 'neutral' : 'primary'"
+              :variant="placing ? 'outline' : 'soft'"
+              :icon="placing ? 'i-lucide-x' : 'i-lucide-locate-fixed'"
+              :label="placing ? 'Cancelar colocación' : 'Colocar o mover lámpara'"
               :disabled="saving"
+              block
               @click="placing = !placing"
-            >
-              {{ placing ? "Cancelar colocación" : "Colocar o mover lámpara" }}
-            </button></template
+            /></template
           >
           <p class="small muted">
             {{ positions.filter((p) => p.x === null).length }} lámparas sin
@@ -612,40 +659,40 @@ onBeforeUnmount(() => {
               </option>
             </select></label
           ><template v-if="gateway"
-            ><span
-              class="pill"
-              :class="gatewayLook(gateway).connected ? 'info' : 'neutral'"
-              >{{ gatewayLook(gateway).label }}</span
-            >
+            ><UBadge
+              class="self-start"
+              :color="gatewayLook(gateway).connected ? 'info' : 'neutral'"
+              variant="subtle"
+              :label="gatewayLook(gateway).label"
+            />
             <p class="small muted mono">{{ gateway.id }}</p>
             <p class="small muted">
               Última comunicación: {{ dateText(gateway.last_seen) }}.
             </p>
-            <p
+            <UAlert
               v-if="gateway.map_level_id && gateway.map_level_id !== level"
-              class="notice"
-            >
-              Ubicado en
-              {{
-                locations?.find((l) => l.id === gateway.map_level_id)?.name ||
-                "otro nivel"
-              }}. Al colocarlo aquí se trasladará al nivel seleccionado.
-            </p>
-            <p v-else-if="!gateway.map_level_id" class="notice">
-              Este gateway aún no tiene nivel asignado en el plano.
-            </p>
-            <button
+              color="info"
+              variant="subtle"
+              icon="i-lucide-info"
+              :description="`Ubicado en ${locations?.find((l) => l.id === gateway.map_level_id)?.name || 'otro nivel'}. Al colocarlo aquí se trasladará al nivel seleccionado.`"
+            />
+            <UAlert
+              v-else-if="!gateway.map_level_id"
+              color="neutral"
+              variant="subtle"
+              icon="i-lucide-map-pin-off"
+              description="Este gateway aún no tiene nivel asignado en el plano."
+            />
+            <UButton
               v-if="admin"
-              class="secondary"
+              :color="placing ? 'neutral' : 'primary'"
+              :variant="placing ? 'outline' : 'soft'"
+              :icon="placing ? 'i-lucide-x' : 'i-lucide-locate-fixed'"
+              :label="placing ? 'Cancelar colocación' : 'Colocar o mover gateway en este nivel'"
               :disabled="saving"
+              block
               @click="placing = !placing"
-            >
-              {{
-                placing
-                  ? "Cancelar colocación"
-                  : "Colocar o mover gateway en este nivel"
-              }}
-            </button></template
+            /></template
           >
           <p class="small muted">
             {{ levelGateways.length }} gateways asignados a este nivel;
@@ -664,23 +711,30 @@ onBeforeUnmount(() => {
             ((kind === 'lamp' && selectedLamp) ||
               (kind === 'gateway' && gateway))
           "
-          class="ghost"
+          class="ghost-danger"
           @click="clearPosition"
         >
           Dejar sin posición en el borrador
         </button>
         <template v-if="admin && !plan.active"
-          ><p class="notice">
-            Revisa las posiciones de lámparas y gateways. Las no ubicadas
-            quedarán sin posición al activar.
-          </p>
-          <button class="primary" :disabled="busy || saving" @click="activate">
-            Confirmar posiciones y activar
-          </button></template
+          ><UAlert
+            color="warning"
+            variant="subtle"
+            icon="i-lucide-triangle-alert"
+            description="Revisa las posiciones de lámparas y gateways. Las no ubicadas quedarán sin posición al activar."
+          />
+          <UButton
+            icon="i-lucide-circle-check"
+            label="Confirmar posiciones y activar"
+            :loading="busy || saving"
+            block
+            @click="activate"
+          /></template
         >
       </aside>
     </div>
     <div v-else class="panel empty">
+      <UIcon name="i-lucide-map" class="empty-icon" />
       <strong>{{
         level
           ? "Este nivel aún no tiene un plano disponible"

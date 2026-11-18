@@ -277,6 +277,7 @@ const profileUnconfirmed = computed(
       variant="link"
       color="primary"
       class="lamp-tabs"
+      :ui="{ list: 'overflow-x-auto', trigger: 'flex-none' }"
     />
 
     <!-- RESUMEN -->
