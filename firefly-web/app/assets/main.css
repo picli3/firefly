@@ -41,6 +41,10 @@
 :root {
   --ui-primary: var(--ui-color-primary-600);
   --ui-success: var(--ui-color-success-700);
+  /* Tonos 700: texto de avisos y badges con contraste AA sobre fondo suave. */
+  --ui-info: var(--ui-color-info-700);
+  --ui-warning: var(--ui-color-warning-700);
+  --ui-error: var(--ui-color-error-700);
   --ui-text: var(--ui-color-neutral-900);
   --ui-text-muted: var(--ui-color-neutral-600);
   --ui-bg: #ffffff;
@@ -671,7 +675,7 @@ td strong {
 .chart svg {
   display: block;
   width: 100%;
-  height: 200px;
+  height: 210px;
   touch-action: pan-y;
 }
 .chart svg:focus-visible {
@@ -683,7 +687,7 @@ td strong {
   stroke-width: 1;
 }
 .chart-axis text {
-  font-size: 11px;
+  font-size: 12px;
   fill: var(--ff-text-muted);
   font-variant-numeric: tabular-nums;
 }
@@ -1013,4 +1017,49 @@ details summary {
 .profile-current strong {
   font-size: 15px;
   color: var(--ff-brand-ink);
+}
+/* Ficha de lámpara (fase 2) */
+.lamp-heading-side {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 8px;
+}
+.lamp-tabs {
+  margin-bottom: 24px;
+}
+.lamp-alerts {
+  display: grid;
+  gap: 10px;
+  margin-bottom: 24px;
+}
+.chart-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-bottom: 18px;
+}
+.panel-sub {
+  margin: 6px 0 0;
+}
+.panel-alert {
+  margin: 16px 22px;
+  width: auto;
+}
+.modal-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  width: 100%;
+}
+.self-start {
+  align-self: flex-start;
+}
+@media (max-width: 720px) {
+  .lamp-heading-side {
+    align-items: flex-start;
+  }
+  .chart-toolbar {
+    overflow-x: auto;
+  }
 }
