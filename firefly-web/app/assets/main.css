@@ -508,9 +508,64 @@ td strong {
 .chart {
   padding: 22px;
 }
+.chart-plot {
+  position: relative;
+}
 .chart svg {
+  display: block;
   width: 100%;
-  height: 180px;
+  height: 200px;
+  touch-action: pan-y;
+}
+.chart svg:focus-visible {
+  outline: 2px solid #16785c;
+  border-radius: 6px;
+}
+.chart-grid line {
+  stroke: #e4ebe7;
+  stroke-width: 1;
+}
+.chart-axis text {
+  font-size: 11px;
+  fill: #7a8982;
+  font-variant-numeric: tabular-nums;
+}
+.chart-axis .chart-unit {
+  font-weight: 600;
+}
+.chart-cursor line {
+  stroke: #9aaaa3;
+  stroke-width: 1;
+}
+.chart-cursor circle {
+  fill: #16785c;
+  stroke: white;
+  stroke-width: 2;
+}
+.chart-tip {
+  position: absolute;
+  transform: translate(12px, -50%);
+  pointer-events: none;
+  background: white;
+  border: 1px solid #e0e8e1;
+  border-radius: 8px;
+  box-shadow: 0 4px 14px rgb(36 59 52 / 12%);
+  padding: 6px 10px;
+  white-space: nowrap;
+  display: grid;
+  gap: 2px;
+}
+.chart-tip.left {
+  transform: translate(calc(-100% - 12px), -50%);
+}
+.chart-tip strong {
+  font-size: 15px;
+  color: #243b34;
+  font-variant-numeric: tabular-nums;
+}
+.chart-tip span {
+  font-size: 12px;
+  color: #7a8982;
 }
 .chart-range {
   font-family: Manrope;
