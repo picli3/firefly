@@ -519,16 +519,15 @@ const profileUnconfirmed = computed(
               min="1"
               required /></label
           ><label
-            >Nivel<select v-model="edit.location_id">
-              <option value="">Sin asignar</option>
-              <option
-                v-for="l in locations?.filter((x) => x.kind === 'level')"
-                :key="l.id"
-                :value="l.id"
-              >
-                {{ l.name }}
-              </option>
-            </select></label
+            >Nivel<FfSelect
+              v-model="edit.location_id"
+              empty-label="Sin asignar"
+              :items="
+                (locations || [])
+                  .filter((x) => x.kind === 'level')
+                  .map((l) => ({ value: l.id, label: l.name }))
+              "
+            /></label
           ><label
             >Lugar<input
               v-model="edit.place"
@@ -572,22 +571,20 @@ const profileUnconfirmed = computed(
             :description="`${status[pendingCommand.status]}. Se mostrará como actual cuando la lámpara confirme que lo aplicó.`"
           />
           <label
-            >Perfil y versión<select
+            >Perfil y versión<FfSelect
               v-model="profile"
               required
+              empty-label="Selecciona un perfil compatible"
+              :items="
+                (profiles || [])
+                  .filter((p) => p.nominal_mv === data.lamp.nominal_mv)
+                  .map((p) => ({
+                    value: p.version_id,
+                    label: `${p.name} · v${p.version} · ${p.nominal_mv / 1000} V`,
+                  }))
+              "
               @change="profileTouched = true"
-            >
-              <option value="">Selecciona un perfil compatible</option>
-              <option
-                v-for="p in profiles?.filter(
-                  (p) => p.nominal_mv === data.lamp.nominal_mv,
-                )"
-                :key="p.version_id"
-                :value="p.version_id"
-              >
-                {{ p.name }} · v{{ p.version }} · {{ p.nominal_mv / 1000 }} V
-              </option>
-            </select></label
+            /></label
           >
           <p class="muted small">
             El cambio se confirma únicamente cuando el nodo informa que lo guardó

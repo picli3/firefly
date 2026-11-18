@@ -7,7 +7,7 @@ const uiIcons = [
   "chevrons-left", "chevrons-right", "circle-alert", "circle-check", "circle-x",
   "copy", "copy-check", "ellipsis", "eye", "eye-off", "info", "loader-circle",
   "menu", "minus", "panel-left-close", "panel-left-open", "plus", "search",
-  "triangle-alert", "upload", "x",
+  "triangle-alert", "upload", "x", "sun", "moon",
 ].map((name) => `lucide:${name}`);
 
 export default defineNuxtConfig({
@@ -18,11 +18,16 @@ export default defineNuxtConfig({
   ui: {
     // Fuentes ya empaquetadas con @fontsource; sin descargas en la compilación.
     fonts: false,
-    // El modo oscuro se habilitará en la fase 5, cuando todo use tokens.
-    colorMode: false,
+    // Modo claro/oscuro: sigue al sistema y se puede cambiar desde la barra superior.
+    colorMode: true,
     theme: {
       colors: ["primary", "secondary", "success", "info", "warning", "error", "neutral"],
     },
+  },
+  colorMode: {
+    preference: "system",
+    fallback: "light",
+    storageKey: "firefly-color-mode",
   },
   icon: {
     provider: "none",

@@ -86,12 +86,11 @@ const stale = computed(() => {
             type="datetime-local"
             required /></label
         ><label
-          >Lámpara<select v-model="f.lamp">
-            <option value="">Todas las lámparas</option>
-            <option v-for="l in lamps" :key="l.id" :value="l.id">
-              {{ l.name || l.device_id }}
-            </option>
-          </select></label
+          >Lámpara<FfSelect
+            v-model="f.lamp"
+            empty-label="Todas las lámparas"
+            :items="(lamps || []).map((l: any) => ({ value: l.id, label: l.name || l.device_id }))"
+          /></label
         >
         <UButton
           type="submit"
