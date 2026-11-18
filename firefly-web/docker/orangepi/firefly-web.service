@@ -1,0 +1,20 @@
+[Unit]
+Description=FireFly Web en NVMe
+Requires=docker.service
+Wants=network-online.target
+After=docker.service network-online.target
+RequiresMountsFor=/mnt/nvme/firefly
+ConditionPathIsMountPoint=/mnt/nvme
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+WorkingDirectory=/mnt/nvme/firefly/app
+ExecStartPre=/usr/bin/mountpoint -q /mnt/nvme
+ExecStart=/usr/bin/docker compose up -d --no-build
+ExecStop=/usr/bin/docker compose stop
+TimeoutStartSec=300
+TimeoutStopSec=120
+
+[Install]
+WantedBy=multi-user.target

@@ -1,0 +1,9 @@
+user firefly-worker
+topic readwrite firefly/v1/gateways/#
+pattern write firefly/v1/gateways/%u/status
+pattern write firefly/v1/gateways/%u/telemetry
+pattern write firefly/v1/gateways/%u/test-report
+pattern write firefly/v1/gateways/%u/config-ack
+pattern read firefly/v1/gateways/%u/commands/config
+pattern read firefly/v1/gateways/%u/commands/test
+pattern write firefly/v1/gateways/%u/test-ack

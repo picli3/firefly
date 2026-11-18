@@ -1,0 +1,734 @@
+<script setup lang="ts">
+import { mapAppearance } from "#shared/map-state.mjs";
+const fetcher = useRequestFetch(),
+  { admin, refresh: refreshSession, user } = useSession();
+const { data: locations } = await useAsyncData<any[]>("locations", () =>
+  fetcher("/api/locations"),
+);
+const { data: plans, refresh: refreshPlans } = await useAsyncData<any[]>(
+  "plans",
+  () => fetcher("/api/plans"),
+);
+const { data: lamps, refresh: refreshLamps } = await useAsyncData<any[]>(
+  "map-lamps",
+  () => fetcher("/api/lamps"),
+);
+const { data: gateways, refresh: refreshGateways } = await useAsyncData<any[]>(
+  "map-gateways",
+  () => fetcher("/api/gateways"),
+);
+const level = ref(""),
+  planId = ref(""),
+  plan = ref<any>(null),
+  error = ref(""),
+  message = ref(""),
+  selected = ref(""),
+  selectedGateway = ref(""),
+  kind = ref<"lamp" | "gateway">("lamp"),
+  placing = ref(false),
+  busy = ref(false),
+  saving = ref(false),
+  live = ref(false),
+  lampElapsed = ref(0),
+  gatewayElapsed = ref(0),
+  file = ref<HTMLInputElement>(),
+  svg = ref<SVGSVGElement>(),
+  view = ref<[number, number, number, number]>([0, 0, 100, 100]),
+  positions = ref<any[]>([]),
+  gatewayPositions = ref<any[]>([]);
+const levelLamps = computed(() =>
+  (lamps.value || []).filter((l) => l.location_id === level.value),
+);
+const levelGateways = computed(() =>
+  (gateways.value || []).filter((g) => g.map_level_id === level.value),
+);
+const selectedLamp = computed<any>(() =>
+  levelLamps.value.find((l) => l.id === selected.value),
+);
+const gateway = computed<any>(() =>
+  gateways.value?.find((g) => g.id === selectedGateway.value),
+);
+const availablePlans = computed(() =>
+  (plans.value || []).filter(
+    (p) => p.level_id === level.value && (admin.value || p.active),
+  ),
+);
+const lampMarkers = computed(() =>
+  positions.value
+    .map((p) => ({
+      ...p,
+      item: levelLamps.value.find((l) => l.id === p.lamp_id),
+    }))
+    .filter((p) => p.item && p.x !== null && p.y !== null),
+);
+const gatewayMarkers = computed(() =>
+  gatewayPositions.value
+    .map((p) => ({
+      ...p,
+      item: gateways.value?.find((g) => g.id === p.gateway_id),
+    }))
+    .filter((p) => p.item && p.x !== null && p.y !== null),
+);
+const listedGateways = computed(() =>
+  admin.value ? gateways.value || [] : levelGateways.value,
+);
+const lampLook = (l: any) => mapAppearance(l, "lamp", lampElapsed.value);
+const gatewayLook = (g: any) =>
+  mapAppearance(g, "gateway", gatewayElapsed.value);
+function syncPositions() {
+  positions.value = levelLamps.value.map((l) => ({
+    lamp_id: l.id,
+    x: l.x,
+    y: l.y,
+  }));
+  gatewayPositions.value = levelGateways.value.map((g) => ({
+    gateway_id: g.id,
+    x: g.x,
+    y: g.y,
+  }));
+}
+watch(level, () => {
+  planId.value =
+    availablePlans.value.find((p) => p.active)?.id ||
+    availablePlans.value[0]?.id ||
+    "";
+  selected.value = "";
+  selectedGateway.value = "";
+  placing.value = false;
+  plan.value = null;
+});
+let loadVersion = 0;
+watch(planId, async () => {
+  const version = ++loadVersion;
+  plan.value = null;
+  if (!planId.value) return;
+  try {
+    const next = await $fetch("/api/plans/" + planId.value);
+    if (version !== loadVersion) return;
+    plan.value = next;
+    resetView();
+    syncPositions();
+    error.value = "";
+  } catch (e) {
+    if (version === loadVersion) error.value = errorText(e);
+  }
+});
+watch([lamps, gateways], () => {
+  if (plan.value?.active && !placing.value && !saving.value) syncPositions();
+});
+watch([kind, selected, selectedGateway], () => {
+  placing.value = false;
+});
+function resetView() {
+  if (plan.value) {
+    const [x, y, w, h] = plan.value.geometry.bounds;
+    view.value = [x - w * 0.05, -y - h - h * 0.05, w * 1.1, h * 1.1];
+  }
+}
+function screenPoint(e: MouseEvent | WheelEvent) {
+  const point = svg.value!.createSVGPoint();
+  point.x = e.clientX;
+  point.y = e.clientY;
+  return point.matrixTransform(svg.value!.getScreenCTM()!.inverse());
+}
+function wheel(e: WheelEvent) {
+  const p = screenPoint(e),
+    factor = e.deltaY > 0 ? 1.12 : 0.89;
+  const [x, y, w, h] = view.value;
+  if (w * factor < 0.00001 || w * factor > 1e12) return;
+  view.value = [
+    p.x - (p.x - x) * factor,
+    p.y - (p.y - y) * factor,
+    w * factor,
+    h * factor,
+  ];
+}
+let drag: any = null,
+  moved = false;
+function down(e: PointerEvent) {
+  if (e.button !== 0) return;
+  drag = { x: e.clientX, y: e.clientY, view: [...view.value] };
+  moved = false;
+  svg.value?.setPointerCapture(e.pointerId);
+}
+function move(e: PointerEvent) {
+  if (!drag || placing.value) return;
+  const matrix = svg.value!.getScreenCTM()!,
+    dx = e.clientX - drag.x,
+    dy = e.clientY - drag.y;
+  if (Math.abs(dx) + Math.abs(dy) > 3) moved = true;
+  view.value = [
+    drag.view[0] - dx / matrix.a,
+    drag.view[1] - dy / matrix.d,
+    drag.view[2],
+    drag.view[3],
+  ];
+}
+async function click(e: MouseEvent) {
+  if (moved || !placing.value || !admin.value || saving.value) return;
+  const p = screenPoint(e),
+    isGateway = kind.value === "gateway",
+    item = isGateway ? gateway.value : selectedLamp.value;
+  if (!item) return;
+  const targetKind = kind.value;
+  error.value = "";
+  saving.value = true;
+  try {
+    if (plan.value.active) {
+      if (isGateway) {
+        await $fetch("/api/gateways/" + item.id + "/placement", {
+          method: "PATCH",
+          body: { level_id: level.value, x: p.x, y: -p.y },
+        });
+        await refreshGateways();
+      } else {
+        await $fetch("/api/lamps/" + item.id, {
+          method: "PATCH",
+          body: {
+            name: item.name || item.device_id,
+            model: item.model,
+            location_id: item.location_id,
+            place: item.place,
+            x: p.x,
+            y: -p.y,
+          },
+        });
+        await refreshLamps();
+      }
+      placing.value = false;
+      syncPositions();
+      message.value =
+        (isGateway ? "Gateway" : "Lámpara") + ": posición guardada";
+    } else {
+      const list =
+          targetKind === "gateway" ? gatewayPositions.value : positions.value,
+        key = isGateway ? "gateway_id" : "lamp_id";
+      let pos = list.find((pos) => pos[key] === item.id);
+      if (!pos) {
+        pos = { [key]: item.id, x: null, y: null };
+        list.push(pos);
+      }
+      pos.x = p.x;
+      pos.y = -p.y;
+      placing.value = false;
+      message.value = "Posición en borrador. Se guardará al activar el plano.";
+    }
+  } catch (e) {
+    error.value = errorText(e);
+  } finally {
+    saving.value = false;
+  }
+}
+function clearPosition() {
+  const list =
+      kind.value === "gateway" ? gatewayPositions.value : positions.value,
+    key = kind.value === "gateway" ? "gateway_id" : "lamp_id",
+    id = kind.value === "gateway" ? selectedGateway.value : selected.value;
+  const p = list.find((p) => p[key] === id);
+  if (p) {
+    p.x = null;
+    p.y = null;
+  }
+}
+function selectLamp(id: string) {
+  kind.value = "lamp";
+  selected.value = id;
+  placing.value = false;
+}
+function selectGateway(id: string) {
+  kind.value = "gateway";
+  selectedGateway.value = id;
+  placing.value = false;
+}
+async function upload() {
+  if (!file.value?.files?.[0]) return;
+  busy.value = true;
+  error.value = "";
+  try {
+    const body = new FormData();
+    body.append("file", file.value.files[0]);
+    body.append("level_id", level.value);
+    const result: any = await $fetch("/api/plans", { method: "POST", body });
+    await refreshPlans();
+    planId.value = result.id;
+    message.value =
+      "Borrador cargado. Revisa posiciones de lámparas y gateways antes de activarlo.";
+  } catch (e) {
+    error.value = errorText(e);
+  } finally {
+    busy.value = false;
+  }
+}
+async function activate() {
+  busy.value = true;
+  error.value = "";
+  try {
+    await $fetch("/api/plans/" + planId.value + "/activate", {
+      method: "POST",
+      body: {
+        positions: positions.value,
+        gateway_positions: gatewayPositions.value,
+      },
+    });
+    await Promise.all([refreshPlans(), refreshLamps(), refreshGateways()]);
+    plan.value.active = true;
+    syncPositions();
+    message.value =
+      "Plano activado y posiciones de lámparas y gateways confirmadas";
+  } catch (e) {
+    error.value = errorText(e);
+  } finally {
+    busy.value = false;
+  }
+}
+let events: EventSource | undefined, timer: ReturnType<typeof setInterval>;
+onMounted(() => {
+  const visiblePlans = (plans.value || []).filter(
+    (p) =>
+      (admin.value || p.active) &&
+      locations.value?.some((l) => l.kind === "level" && l.id === p.level_id),
+  );
+  const firstPlan = visiblePlans.find((p) => p.active) || visiblePlans[0];
+  if (firstPlan) level.value = firstPlan.level_id;
+  timer = setInterval(() => {
+    lampElapsed.value++;
+    gatewayElapsed.value++;
+  }, 1000);
+  events = new EventSource("/api/events");
+  events.addEventListener("snapshot", (e) => {
+    lamps.value = JSON.parse((e as MessageEvent).data);
+    lampElapsed.value = 0;
+    live.value = true;
+  });
+  events.addEventListener("gateways", (e) => {
+    gateways.value = JSON.parse((e as MessageEvent).data);
+    gatewayElapsed.value = 0;
+  });
+  events.onerror = async () => {
+    live.value = false;
+    await refreshSession();
+    if (!user.value) {
+      events?.close();
+      await navigateTo("/login");
+    }
+  };
+});
+onBeforeUnmount(() => {
+  events?.close();
+  clearInterval(timer);
+});
+</script>
+<template>
+  <section>
+    <div class="page-heading">
+      <div>
+        <p class="eyebrow">DISTRIBUCIÓN DE DISPOSITIVOS</p>
+        <h1>Planos y ubicaciones</h1>
+        <p class="muted">
+          Localiza lámparas y gateways y consulta su comunicación.
+        </p>
+      </div>
+      <span class="pill" :class="live ? 'good' : 'neutral'"
+        >●
+        {{
+          live ? "Actualización en vivo" : "Actualización interrumpida"
+        }}</span
+      >
+    </div>
+    <div class="filter-bar">
+      <label
+        >Nivel<select v-model="level">
+          <option value="">Selecciona un nivel</option>
+          <option
+            v-for="l in locations?.filter((l) => l.kind === 'level')"
+            :key="l.id"
+            :value="l.id"
+          >
+            {{ locations?.find((b) => b.id === l.parent_id)?.name }} /
+            {{ l.name }}
+          </option>
+        </select></label
+      ><label v-if="level"
+        >Plano<select v-model="planId">
+          <option value="">Sin plano</option>
+          <option v-for="p in availablePlans" :key="p.id" :value="p.id">
+            {{ p.filename }} · {{ p.active ? "Activo" : "Borrador" }}
+          </option>
+        </select></label
+      >
+    </div>
+    <form
+      v-if="admin && level"
+      class="panel upload-bar"
+      @submit.prevent="upload"
+    >
+      <label
+        >Subir plano DXF 2D · hasta 5 MiB<input
+          ref="file"
+          type="file"
+          accept=".dxf"
+          required /></label
+      ><button class="secondary" :disabled="busy">Cargar como borrador</button>
+    </form>
+    <p v-if="error" class="error" role="alert">{{ error }}</p>
+    <p v-if="message" class="success" role="status">{{ message }}</p>
+    <div v-if="plan" class="map-layout">
+      <section class="panel map-panel">
+        <div class="panel-heading">
+          <h2>{{ plan.filename }}</h2>
+          <div class="actions">
+            <span class="pill" :class="plan.active ? 'good' : 'warn'">{{
+              plan.active ? "Plano activo" : "Borrador: revisar posiciones"
+            }}</span><button class="secondary" @click="resetView">
+              Ajustar vista</button
+            ><a class="text-link" :href="'/api/plans/' + planId + '/download'"
+              >DXF ↓</a
+            >
+          </div>
+        </div>
+        <div class="map-legend" aria-label="Leyenda del plano">
+          <span
+            ><i class="legend-circle" style="background: #16785c" />Lámpara
+            activa</span
+          ><span
+            ><i class="legend-circle" style="background: #85928c" />Lámpara
+            inactiva</span
+          ><span
+            ><i class="legend-square" style="background: #316cad" />Gateway
+            conectado</span
+          ><span
+            ><i class="legend-square" style="background: #85928c" />Gateway sin
+            conexión</span
+          >
+        </div>
+        <p class="map-reception-note">
+          Activa significa telemetría reciente, no luz encendida. Sin
+          actualización durante tres intervalos esperados pasa a inactiva; si el
+          gateway pierde conexión, no se puede confirmar la actividad de sus
+          lámparas.
+        </p>
+        <p v-for="warning in plan.warnings" :key="warning" class="notice">
+          {{ warning }}
+        </p>
+        <div class="map-canvas" :class="{ placing }">
+          <svg
+            ref="svg"
+            :viewBox="view.join(' ')"
+            preserveAspectRatio="xMidYMid meet"
+            aria-label="Plano del nivel con lámparas y gateways"
+            @wheel.prevent="wheel"
+            @pointerdown="down"
+            @pointermove="move"
+            @pointerup="drag = null"
+            @pointercancel="drag = null"
+            @click="click"
+          >
+            <g
+              transform="scale(1,-1)"
+              stroke="#91a8a0"
+              fill="none"
+              :stroke-width="view[2] / 1100"
+            >
+              <template v-for="(s, i) in plan.geometry.shapes" :key="i">
+                <circle
+                  v-if="s.type === 'circle'"
+                  :cx="s.center[0]"
+                  :cy="s.center[1]"
+                  :r="s.radius"
+                />
+                <polyline
+                  v-else
+                  :points="
+                    [...s.points, ...(s.closed ? [s.points[0]] : [])]
+                      .map((p) => p.join(','))
+                      .join(' ')
+                  "
+                />
+              </template>
+            </g>
+            <g
+              v-for="p in lampMarkers"
+              :key="'lamp-' + p.lamp_id"
+              class="map-marker"
+              role="button"
+              tabindex="0"
+              :aria-label="
+                (p.item.name || p.item.device_id) +
+                ' · ' +
+                lampLook(p.item).label
+              "
+              :data-device-id="p.lamp_id"
+              data-device-kind="lamp"
+              :data-connection="
+                lampLook(p.item).connected ? 'active' : 'inactive'
+              "
+              @pointerdown.stop
+              @click.stop="selectLamp(p.lamp_id)"
+              @keydown.enter.prevent="selectLamp(p.lamp_id)"
+              @keydown.space.prevent="selectLamp(p.lamp_id)"
+            >
+              <title>
+                {{ p.item.name || p.item.device_id }} ·
+                {{ lampLook(p.item).label }} · {{ p.item.gateway_name }}
+              </title>
+              <circle
+                :cx="p.x"
+                :cy="-p.y"
+                :r="view[2] / 90"
+                :fill="lampLook(p.item).color"
+                stroke="white"
+                :stroke-width="view[2] / 450"
+              />
+              <circle
+                v-if="p.item.alert || p.item.critical"
+                :cx="p.x + view[2] / 100"
+                :cy="-p.y - view[2] / 100"
+                :r="view[2] / 170"
+                fill="#cb7836"
+                stroke="white"
+                :stroke-width="view[2] / 600"
+              >
+                <title>Última alerta recibida</title>
+              </circle>
+              <text
+                :x="p.x + view[2] / 60"
+                :y="-p.y + view[3] / 150"
+                :font-size="view[2] / 65"
+                fill="#14382f"
+              >
+                {{ p.item.name || "Lámpara" }}
+              </text>
+            </g>
+            <g
+              v-for="p in gatewayMarkers"
+              :key="'gateway-' + p.gateway_id"
+              class="map-marker"
+              role="button"
+              tabindex="0"
+              :aria-label="
+                'Gateway ' + p.item.name + ' · ' + gatewayLook(p.item).label
+              "
+              :data-device-id="p.gateway_id"
+              data-device-kind="gateway"
+              :data-connection="
+                gatewayLook(p.item).connected ? 'active' : 'inactive'
+              "
+              @pointerdown.stop
+              @click.stop="selectGateway(p.gateway_id)"
+              @keydown.enter.prevent="selectGateway(p.gateway_id)"
+              @keydown.space.prevent="selectGateway(p.gateway_id)"
+            >
+              <title>
+                Gateway {{ p.item.name }} · {{ gatewayLook(p.item).label }}
+              </title>
+              <rect
+                :x="p.x - view[2] / 75"
+                :y="-p.y - view[2] / 75"
+                :width="view[2] / 37.5"
+                :height="view[2] / 37.5"
+                :rx="view[2] / 300"
+                :fill="gatewayLook(p.item).color"
+                stroke="white"
+                :stroke-width="view[2] / 450"
+              />
+              <text
+                :x="p.x"
+                :y="-p.y + view[2] / 180"
+                text-anchor="middle"
+                :font-size="view[2] / 60"
+                fill="white"
+                font-weight="bold"
+              >
+                G
+              </text>
+              <text
+                :x="p.x + view[2] / 50"
+                :y="-p.y + view[3] / 150"
+                :font-size="view[2] / 65"
+                fill="#14382f"
+              >
+                Gateway · {{ p.item.name }}
+              </text>
+            </g></svg
+          ><span class="map-help">{{
+            placing
+              ? kind === "gateway"
+                ? "Haz clic para ubicar el gateway"
+                : "Haz clic para ubicar la lámpara"
+              : "Arrastra para mover · rueda para ampliar"
+          }}</span>
+        </div>
+      </section>
+      <aside class="panel form-panel">
+        <h2>Dispositivos del plano</h2>
+        <label
+          >Tipo de dispositivo<select v-model="kind">
+            <option value="lamp">Lámparas</option>
+            <option value="gateway">Gateways</option>
+          </select></label
+        >
+        <template v-if="kind === 'lamp'"
+          ><label
+            >Lámpara<select v-model="selected">
+              <option value="">Selecciona una lámpara</option>
+              <option v-for="l in levelLamps" :key="l.id" :value="l.id">
+                {{ l.name || l.device_id }} · {{ lampLook(l).label }}
+              </option>
+            </select></label
+          ><template v-if="selectedLamp"
+            ><span
+              class="pill"
+              :class="lampLook(selectedLamp).connected ? 'good' : 'neutral'"
+              >{{ lampLook(selectedLamp).label }}</span
+            >
+            <p class="small muted">
+              Última telemetría: {{ dateText(selectedLamp.last_seen) }}.
+              Gateway: {{ selectedLamp.gateway_name }}.
+            </p>
+            <StatusPills :lamp="selectedLamp" /><NuxtLink
+              :to="'/lamparas/' + selected"
+              class="text-link"
+              >Abrir ficha →</NuxtLink
+            ><button
+              v-if="admin"
+              class="secondary"
+              :disabled="saving"
+              @click="placing = !placing"
+            >
+              {{ placing ? "Cancelar colocación" : "Colocar o mover lámpara" }}
+            </button></template
+          >
+          <p class="small muted">
+            {{ positions.filter((p) => p.x === null).length }} lámparas sin
+            posición. Asigna el nivel desde la ficha de cada lámpara.
+          </p></template
+        >
+        <template v-else
+          ><label
+            >Gateway<select v-model="selectedGateway">
+              <option value="">Selecciona un gateway</option>
+              <option v-for="g in listedGateways" :key="g.id" :value="g.id">
+                {{ g.name }} · {{ gatewayLook(g).label }}
+              </option>
+            </select></label
+          ><template v-if="gateway"
+            ><span
+              class="pill"
+              :class="gatewayLook(gateway).connected ? 'info' : 'neutral'"
+              >{{ gatewayLook(gateway).label }}</span
+            >
+            <p class="small muted mono">{{ gateway.id }}</p>
+            <p class="small muted">
+              Última comunicación: {{ dateText(gateway.last_seen) }}.
+            </p>
+            <p
+              v-if="gateway.map_level_id && gateway.map_level_id !== level"
+              class="notice"
+            >
+              Ubicado en
+              {{
+                locations?.find((l) => l.id === gateway.map_level_id)?.name ||
+                "otro nivel"
+              }}. Al colocarlo aquí se trasladará al nivel seleccionado.
+            </p>
+            <p v-else-if="!gateway.map_level_id" class="notice">
+              Este gateway aún no tiene nivel asignado en el plano.
+            </p>
+            <button
+              v-if="admin"
+              class="secondary"
+              :disabled="saving"
+              @click="placing = !placing"
+            >
+              {{
+                placing
+                  ? "Cancelar colocación"
+                  : "Colocar o mover gateway en este nivel"
+              }}
+            </button></template
+          >
+          <p class="small muted">
+            {{ levelGateways.length }} gateways asignados a este nivel;
+            {{ gatewayPositions.filter((p) => p.x === null).length }} sin
+            posición.
+          </p>
+          <p class="small muted">
+            Un gateway puede atender lámparas de otros niveles. Su marcador
+            indica dónde está instalado.
+          </p></template
+        >
+        <button
+          v-if="
+            admin &&
+            !plan.active &&
+            ((kind === 'lamp' && selectedLamp) ||
+              (kind === 'gateway' && gateway))
+          "
+          class="ghost"
+          @click="clearPosition"
+        >
+          Dejar sin posición en el borrador
+        </button>
+        <template v-if="admin && !plan.active"
+          ><p class="notice">
+            Revisa las posiciones de lámparas y gateways. Las no ubicadas
+            quedarán sin posición al activar.
+          </p>
+          <button class="primary" :disabled="busy || saving" @click="activate">
+            Confirmar posiciones y activar
+          </button></template
+        >
+      </aside>
+    </div>
+    <div v-else class="panel empty">
+      <strong>{{
+        level
+          ? "Este nivel aún no tiene un plano disponible"
+          : "Selecciona un nivel"
+      }}</strong>
+      <p>
+        El administrador puede cargar un DXF para ubicar las lámparas y los
+        gateways.
+      </p>
+    </div>
+  </section>
+</template>
+<style scoped>
+.map-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  padding: 14px 20px 6px;
+  font-size: 10px;
+  color: #526d5d;
+}
+.map-legend span {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+.legend-circle,
+.legend-square {
+  display: inline-block;
+  width: 11px;
+  height: 11px;
+  flex: none;
+}
+.legend-circle {
+  border-radius: 50%;
+}
+.legend-square {
+  border-radius: 2px;
+}
+.map-reception-note {
+  font-size: 10px;
+  color: #7e8c83;
+  line-height: 1.6;
+  padding: 0 20px;
+  margin: 8px 0 14px;
+}
+.map-marker:focus-visible {
+  outline: 2px solid #173f33;
+  outline-offset: 4px;
+}
+</style>

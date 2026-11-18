@@ -1,0 +1,57 @@
+# --- Dependencias y compilación ---
+node_modules/
+.nuxt/
+.output/
+.data/
+.cache/
+.vite/
+dist/
+*.tsbuildinfo
+
+# --- Secretos y configuración local ---
+.env
+.env.*
+!.env.example
+.runtime/
+*.key
+*.pem
+*.crt
+*.csr
+*.p12
+*.pfx
+*.jks
+# Contraseñas/ACL generadas del broker (la ACL de plantilla docker/acl sí se versiona)
+passwd
+*.passwd
+mosquitto.passwd
+
+# --- Datos y respaldos (pueden contener datos reales de lámparas/usuarios) ---
+backups/
+*.dump
+*.backup
+*.sql.gz
+*.tar.gz
+*.csv
+*.csv.part
+*.part
+pgdata/
+mosquitto-data/
+
+# --- Salidas generadas ---
+output/
+coverage/
+test-results/
+playwright-report/
+
+# --- Logs ---
+logs/
+*.log
+npm-debug.log*
+
+# --- Editor y sistema operativo ---
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+*.swp
+*~

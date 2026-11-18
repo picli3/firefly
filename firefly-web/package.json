@@ -1,0 +1,43 @@
+{
+  "name": "firefly-web",
+  "private": true,
+  "type": "module",
+  "engines": {
+    "node": ">=22.21.0"
+  },
+  "scripts": {
+    "dev": "node scripts/local.mjs node_modules/nuxt/bin/nuxt.mjs dev --host 127.0.0.1 --port 4300",
+    "build": "nuxt build",
+    "start": "node .output/server/index.mjs",
+    "test": "node --test tests/*.test.mjs",
+    "migrate": "node services/migrate.mjs",
+    "admin": "node services/admin.mjs",
+    "worker": "node services/worker.mjs",
+    "simulate": "node services/simulator.mjs",
+    "check": "nuxt typecheck",
+    "test:integration": "INTEGRATION=1 node scripts/local.mjs --test tests/integration.test.mjs",
+    "test:mqtt": "MQTT_TEST=1 node --test tests/mqtt.test.mjs"
+  },
+  "dependencies": {
+    "dxf-parser": "^1.1.2",
+    "h3": "^1.15.0",
+    "mqtt": "^5.10.0",
+    "nuxt": "^4.4.2",
+    "pdfkit": "^0.17.0",
+    "postgres": "^3.4.7",
+    "svg-to-pdfkit": "^0.1.8",
+    "vue": "^3.5.0",
+    "vue-router": "^5.5.1",
+    "zod": "^4.6.7"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.58.0",
+    "@types/node": "^22.0.0",
+    "prettier": "^3.10.1",
+    "typescript": "^5.9.0",
+    "vue-tsc": "^3.0.0"
+  },
+  "overrides": {
+    "minimatch": "^11.0.1"
+  }
+}

@@ -1,0 +1,129 @@
+name: firefly-web
+x-app: &app
+  image: firefly-web:local
+  build:
+    context: .
+    dockerfile: docker/Dockerfile
+  environment: &env
+    DATABASE_URL: postgres://firefly:${POSTGRES_PASSWORD:?Configure POSTGRES_PASSWORD}@db:5432/firefly
+    MQTT_URL: mqtt://mosquitto:1883
+    MQTT_PASSWORD: ${MQTT_PASSWORD:?Configure MQTT_PASSWORD}
+    PUBLIC_ORIGIN: ${PUBLIC_ORIGIN:-https://localhost:8443}
+    COOKIE_SECURE: "true"
+    MQTT_PUBLIC_HOST: ${MQTT_PUBLIC_HOST:-${MQTT_HOST:-localhost}}
+    MQTT_PUBLIC_PORT: ${MQTT_PUBLIC_PORT:-${MQTT_PORT:-8883}}
+    MQTT_BIND: ${MQTT_BIND:-127.0.0.1}
+    BROKER_CA_FILE: /broker-public/ca.pem
+    GATEWAY_NTP_SERVERS: ${GATEWAY_NTP_SERVERS:-pool.ntp.org}
+  restart: unless-stopped
+services:
+  db:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_DB: firefly
+      POSTGRES_USER: firefly
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Configure POSTGRES_PASSWORD}
+    volumes: [database:/var/lib/postgresql/data]
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U firefly"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+    restart: unless-stopped
+  certs:
+    image: alpine/openssl:latest
+    entrypoint: /bin/sh
+    command: /init-broker-certs.sh
+    environment:
+      MQTT_HOST: ${MQTT_HOST:-localhost}
+    volumes:
+      - broker-certs:/certs
+      - broker-public:/public
+      - ./docker/init-broker-certs.sh:/init-broker-certs.sh:ro
+  mosquitto:
+    image: eclipse-mosquitto:2
+    entrypoint: /bin/sh
+    command: /mosquitto/config/broker-start.sh
+    environment:
+      MQTT_PASSWORD: ${MQTT_PASSWORD:?Configure MQTT_PASSWORD}
+    ports: ["${MQTT_BIND:-127.0.0.1}:${MQTT_PORT:-8883}:8883"]
+    volumes:
+      - ./docker/mosquitto.conf:/mosquitto/config/mosquitto.conf:ro
+      - ./docker/acl:/mosquitto/config/acl:ro
+      - ./docker/broker-start.sh:/mosquitto/config/broker-start.sh:ro
+      - broker-auth:/mosquitto/auth
+      - broker-data:/mosquitto/data
+      - broker-certs:/mosquitto/certs:ro
+    depends_on:
+      certs: { condition: service_completed_successfully }
+    restart: unless-stopped
+  migrate:
+    <<: *app
+    command: ["node", "services/migrate.mjs"]
+    restart: "no"
+    depends_on:
+      db: { condition: service_healthy }
+  web:
+    <<: *app
+    volumes: [broker-public:/broker-public:ro]
+    depends_on:
+      certs: { condition: service_completed_successfully }
+      migrate: { condition: service_completed_successfully }
+  worker:
+    <<: *app
+    command: ["node", "services/worker.mjs"]
+    environment:
+      <<: *env
+      MQTT_AUTH_DIR: /mosquitto/auth
+      MQTT_ACL_FILE: /broker-policy/acl
+      MQTT_RELOAD_PID: "1"
+    pid: "service:mosquitto"
+    volumes:
+      - broker-auth:/mosquitto/auth
+      - ./docker/acl:/broker-policy/acl:ro
+    depends_on:
+      migrate: { condition: service_completed_successfully }
+      mosquitto: { condition: service_started }
+  proxy:
+    image: caddy:2-alpine
+    environment:
+      SITE_ADDRESS: ${SITE_ADDRESS:-localhost}
+    ports: ["${WEB_BIND:-127.0.0.1}:${HTTPS_PORT:-8443}:443"]
+    volumes:
+      - ./docker/Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy-data:/data
+      - caddy-config:/config
+    depends_on: [web]
+    restart: unless-stopped
+  admin:
+    <<: *app
+    command: ["node", "services/admin.mjs"]
+    restart: "no"
+    profiles: [tools]
+    environment:
+      <<: *env
+      ADMIN_EMAIL: ${ADMIN_EMAIL:-}
+      ADMIN_NAME: ${ADMIN_NAME:-Administrador}
+      ADMIN_PASSWORD: ${ADMIN_PASSWORD:-}
+    depends_on:
+      migrate: { condition: service_completed_successfully }
+  simulator:
+    <<: *app
+    command: ["node", "services/simulator.mjs"]
+    profiles: [simulation]
+    environment:
+      <<: *env
+      SIM_GATEWAY: ${SIM_GATEWAY:-sim-gateway}
+      SIM_PASSWORD: ${SIM_PASSWORD:-}
+      SIM_STATE_FILE: /state/simulator.json
+    volumes: [sim-state:/state]
+    depends_on: [worker]
+volumes:
+  database:
+  broker-auth:
+  broker-data:
+  broker-certs:
+  broker-public:
+  caddy-data:
+  caddy-config:
+  sim-state:

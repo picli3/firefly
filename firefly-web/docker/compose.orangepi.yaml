@@ -1,0 +1,43 @@
+x-firefly-logging: &firefly-logging
+  driver: local
+  options:
+    max-size: "10m"
+    max-file: "3"
+services:
+  db:
+    logging: *firefly-logging
+  web:
+    logging: *firefly-logging
+  worker:
+    logging: *firefly-logging
+  mosquitto:
+    logging: *firefly-logging
+  proxy:
+    logging: *firefly-logging
+# Install as compose.override.yaml on the Orange Pi. All application volumes
+# bind to the mounted NVMe; Docker must fail if those directories are absent.
+volumes:
+  database:
+    driver: local
+    driver_opts: { type: none, o: bind, device: "${FIREFLY_DATA_DIR:?Set FIREFLY_DATA_DIR}/postgres" }
+  broker-auth:
+    driver: local
+    driver_opts: { type: none, o: bind, device: "${FIREFLY_DATA_DIR}/broker-auth" }
+  broker-data:
+    driver: local
+    driver_opts: { type: none, o: bind, device: "${FIREFLY_DATA_DIR}/broker-data" }
+  broker-certs:
+    driver: local
+    driver_opts: { type: none, o: bind, device: "${FIREFLY_DATA_DIR}/broker-certs" }
+  broker-public:
+    driver: local
+    driver_opts: { type: none, o: bind, device: "${FIREFLY_DATA_DIR}/broker-public" }
+  caddy-data:
+    driver: local
+    driver_opts: { type: none, o: bind, device: "${FIREFLY_DATA_DIR}/caddy-data" }
+  caddy-config:
+    driver: local
+    driver_opts: { type: none, o: bind, device: "${FIREFLY_DATA_DIR}/caddy-config" }
+  sim-state:
+    driver: local
+    driver_opts: { type: none, o: bind, device: "${FIREFLY_DATA_DIR}/sim-state" }
