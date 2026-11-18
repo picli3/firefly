@@ -388,16 +388,16 @@ onBeforeUnmount(() => {
         </div>
         <div class="map-legend" aria-label="Leyenda del plano">
           <span
-            ><i class="legend-circle" style="background: #16785c" />Lámpara
+            ><i class="legend-circle" style="background: var(--ff-chart-line)" />Lámpara
             activa</span
           ><span
-            ><i class="legend-circle" style="background: #85928c" />Lámpara
+            ><i class="legend-circle" style="background: var(--ff-map-inactive)" />Lámpara
             inactiva</span
           ><span
-            ><i class="legend-square" style="background: #316cad" />Gateway
+            ><i class="legend-square" style="background: var(--ff-map-gateway)" />Gateway
             conectado</span
           ><span
-            ><i class="legend-square" style="background: #85928c" />Gateway sin
+            ><i class="legend-square" style="background: var(--ff-map-inactive)" />Gateway sin
             conexión</span
           >
         </div>
@@ -425,7 +425,7 @@ onBeforeUnmount(() => {
           >
             <g
               transform="scale(1,-1)"
-              stroke="#91a8a0"
+              stroke="var(--ff-text-faint)"
               fill="none"
               :stroke-width="view[2] / 1100"
             >
@@ -484,7 +484,7 @@ onBeforeUnmount(() => {
                 :cx="p.x + view[2] / 100"
                 :cy="-p.y - view[2] / 100"
                 :r="view[2] / 170"
-                fill="#cb7836"
+                fill="var(--ff-map-warning)"
                 stroke="white"
                 :stroke-width="view[2] / 600"
               >
@@ -494,7 +494,7 @@ onBeforeUnmount(() => {
                 :x="p.x + view[2] / 60"
                 :y="-p.y + view[3] / 150"
                 :font-size="view[2] / 65"
-                fill="#14382f"
+                fill="var(--ff-text)"
               >
                 {{ p.item.name || "Lámpara" }}
               </text>
@@ -545,7 +545,7 @@ onBeforeUnmount(() => {
                 :x="p.x + view[2] / 50"
                 :y="-p.y + view[3] / 150"
                 :font-size="view[2] / 65"
-                fill="#14382f"
+                fill="var(--ff-text)"
               >
                 Gateway · {{ p.item.name }}
               </text>
@@ -699,8 +699,8 @@ onBeforeUnmount(() => {
   flex-wrap: wrap;
   gap: 12px;
   padding: 14px 20px 6px;
-  font-size: 10px;
-  color: #526d5d;
+  font-size: 12px;
+  color: var(--ff-text-muted);
 }
 .map-legend span {
   display: inline-flex;
@@ -721,14 +721,14 @@ onBeforeUnmount(() => {
   border-radius: 2px;
 }
 .map-reception-note {
-  font-size: 10px;
-  color: #7e8c83;
+  font-size: 12px;
+  color: var(--ff-text-muted);
   line-height: 1.6;
   padding: 0 20px;
   margin: 8px 0 14px;
 }
 .map-marker:focus-visible {
-  outline: 2px solid #173f33;
+  outline: 2px solid var(--ff-sidebar);
   outline-offset: 4px;
 }
 </style>
