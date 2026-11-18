@@ -531,7 +531,7 @@ export default defineEventHandler(async (event) => {
         const tests =
           await db`SELECT * FROM test_reports WHERE lamp_id=${id} ORDER BY id DESC LIMIT 100`;
         const commands =
-          await db`SELECT c.*,p.name profile_name,p.nominal_mv profile_nominal_mv FROM commands c JOIN profile_versions v ON v.id=c.profile_version_id JOIN profiles p ON p.id=v.profile_id WHERE lamp_id=${id} ORDER BY c.created_at DESC LIMIT 50`;
+          await db`SELECT c.*,p.name profile_name,p.nominal_mv profile_nominal_mv,v.version profile_version FROM commands c JOIN profile_versions v ON v.id=c.profile_version_id JOIN profiles p ON p.id=v.profile_id WHERE lamp_id=${id} ORDER BY c.created_at DESC LIMIT 50`;
         const test_requests =
           await db`SELECT * FROM test_requests WHERE lamp_id=${id} ORDER BY created_at DESC LIMIT 30`;
         return { lamp, measurements, tests, commands, test_requests };
