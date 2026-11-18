@@ -120,6 +120,7 @@ async function configure() {
       method: "POST",
       body: { profile_version_id: profile.value },
     });
+    profileTouched.value = false;
     await refresh();
     message.value =
       "Configuración solicitada. Esperando confirmación de la lámpara.";
@@ -144,6 +145,42 @@ const activeProfile = computed(() =>
   data.value?.commands.find(
     (c: any) => c.version === data.value?.lamp.latest?.config_version,
   ),
+);
+// Profile the node has confirmed: what its telemetry reports, else the last ACK.
+const currentCommand = computed(
+  () =>
+    activeProfile.value ||
+    data.value?.commands.find(
+      (c: any) =>
+        c.version === data.value?.lamp.applied_version && c.status === "applied",
+    ),
+);
+const desiredCommand = computed(() =>
+  data.value?.commands.find(
+    (c: any) => c.version === data.value?.lamp.desired_version,
+  ),
+);
+const pendingCommand = computed(() =>
+  desiredCommand.value &&
+  desiredCommand.value.version !== currentCommand.value?.version &&
+  ["pending", "sent", "deferred"].includes(desiredCommand.value.status)
+    ? desiredCommand.value
+    : null,
+);
+// Preselect the profile in effect (or the one on its way) until the user picks another.
+const profileTouched = ref(false);
+watch(
+  () => (pendingCommand.value || currentCommand.value)?.profile_version_id,
+  (id) => {
+    if (id && !profileTouched.value) profile.value = id;
+  },
+  { immediate: true },
+);
+const profileUnchanged = computed(
+  () =>
+    !!profile.value &&
+    profile.value ===
+      (pendingCommand.value || currentCommand.value)?.profile_version_id,
 );
 const status: any = {
   pending: "Pendiente",
@@ -287,14 +324,38 @@ const status: any = {
       </form>
       <form class="panel form-panel" @submit.prevent="configure">
         <h2>Perfil de batería</h2>
-        <p>
-          Solicitada:
-          <strong>{{ data.lamp.desired_version || "Ninguna" }}</strong> ·
-          Confirmada:
-          <strong>{{ data.lamp.applied_version ?? "Desconocida" }}</strong>
+        <div class="profile-current">
+          <span class="muted">Perfil actual en la lámpara</span>
+          <strong v-if="currentCommand"
+            >{{ currentCommand.profile_name }} · v{{
+              currentCommand.profile_version
+            }}
+            · {{ currentCommand.profile_nominal_mv / 1000 }} V</strong
+          >
+          <strong v-else>Sin perfil confirmado</strong>
+          <small v-if="currentCommand" class="muted"
+            >Configuración n.º {{ currentCommand.version }} · confirmada
+            {{ dateText(currentCommand.applied_at || currentCommand.created_at) }}</small
+          >
+          <small v-else class="muted">{{
+            data.lamp.config_capable
+              ? "La lámpara aún no ha confirmado ninguna configuración."
+              : "Usa los umbrales fijos de su firmware."
+          }}</small>
+        </div>
+        <p v-if="pendingCommand" class="notice">
+          Cambio pendiente: <strong>{{ pendingCommand.profile_name }} · v{{
+            pendingCommand.profile_version
+          }}</strong>
+          ({{ status[pendingCommand.status] }}). Se mostrará como actual cuando
+          la lámpara confirme que lo aplicó.
         </p>
         <label
-          >Perfil y versión<select v-model="profile" required>
+          >Perfil y versión<select
+            v-model="profile"
+            required
+            @change="profileTouched = true"
+          >
             <option value="">Selecciona un perfil compatible</option>
             <option
               v-for="p in profiles?.filter(
@@ -311,8 +372,17 @@ const status: any = {
           El cambio se confirma únicamente cuando el nodo informa que lo guardó
           y aplicó. Si está en prueba, debe diferirlo hasta terminar.
         </p>
-        <button :disabled="busy || !data.lamp.config_capable" class="primary">
-          Solicitar configuración
+        <button
+          :disabled="busy || !data.lamp.config_capable || profileUnchanged"
+          class="primary"
+        >
+          {{
+            profileUnchanged
+              ? pendingCommand
+                ? "Cambio ya solicitado"
+                : "Perfil ya aplicado"
+              : "Solicitar configuración"
+          }}
         </button>
         <p v-if="!data.lamp.config_capable" class="error">
           El firmware no admite configuración remota.
