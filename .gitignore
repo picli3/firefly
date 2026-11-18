@@ -20,3 +20,4 @@ emergency-light-pcb/v*
 *FCBak
 *.bin
 *.gltf
+graphify-out/
