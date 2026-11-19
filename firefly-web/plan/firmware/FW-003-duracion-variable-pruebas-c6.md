@@ -1,6 +1,6 @@
 # FW-003 — Pruebas remotas de duración variable en el C6 (30–300 s)
 
-- **Estado:** implementada y verificada en host y compilación (rama `feature/firmware_WG_test_duration`, commit `8760540`). **Pendiente:** cargar en el C6 y verificar en hardware.
+- **Estado:** **completada.** Implementada (commit `8760540`, integrada en `main`), cargada en el C6 por el usuario el 2026-11-18 y verificada en hardware en la Orange Pi.
 - **Responsable:** chat de firmware C6.
 - **Fecha:** 2026-11-18, America/Lima.
 - **Alcance:** solo `firmware/c6-zigbee-gateway`. El H2 ya admite hasta `APP_MAX_TEST_DURATION_S = 300` s; no se modifica.
@@ -68,8 +68,8 @@ No cambian las estructuras de `firmware/common`, los IDs de prueba (32768–6553
 - [x] Registro pendiente de firmware anterior (duración 0): se mantiene la ventana de 180 s.
 - [x] Deduplicación, vencimiento, actualización v1 y reenvío de resultado tras reinicio siguen funcionando (prueba de host existente).
 - [x] `idf.py build` sin errores ni avisos.
-- [ ] C6 cargado. `status` en la web muestra «hasta 5 min» y la planificación permite elegir más de 30 s.
-- [ ] Prueba física autorizada de 60 s o más: el relé del H2 abre durante la duración pedida, el `test-report` informa esa `duration_s` y la web registra el resultado en «Ejecuciones programadas».
+- [x] C6 cargado. `status` registra `test_max_duration_s = 300` en la Orange Pi y la planificación permite elegir más de 30 s.
+- [x] Prueba física de 60 s o más: dos pruebas programadas por el usuario se ejecutaron y la web las registró en «Ejecuciones programadas».
 
 ## Devolución
 
@@ -87,6 +87,11 @@ No cambian las estructuras de `firmware/common`, los IDs de prueba (32768–6553
 - `idf.py build` (ESP-IDF 5.5): imagen de 0x10b5c0 bytes, 24 % libre.
 - Ruta web completa con un gateway simulado por MQTT en la instalación local: planificación a una hora concreta, orden publicada con `duration_s: 120`, confirmación, resultado y ejecución registrada.
 
-**Pendiente:**
-- Cargar el C6 (`idf.py -p <puerto> flash`). No borra NVS ni la red Zigbee: no usar `erase-flash`.
-- Verificación física autorizada.
+**Verificación en hardware (Orange Pi, 2026-11-18, America/Lima):**
+
+| Lámpara | Programada | `duration_s` pedida | `duration_s` informada por el H2 | Muestras | Resultado |
+| --- | --- | --- | --- | --- | --- |
+| Lampara 1 | 20:30 | 120 | 120 | 25 | PASS |
+| Lampara 2 | 21:00 | 180 | 180 | 37 | PASS |
+
+El número de muestras (una cada 5 s) coincide con la duración pedida. Ambas solicitudes tienen origen `schedule`, se completaron y no se repitieron.
