@@ -1,4 +1,5 @@
 #include "remote_test.h"
+#include "app_config.h"
 #include "gateway_settings.h"
 #ifdef CONFIG_GATEWAY_ETH_ENABLED
 #include "cJSON.h"
@@ -50,6 +51,15 @@ typedef struct {
 } record_t;
 static record_t s_record;
 static int64_t s_highwater;
+/* The pending record keeps the requested duration in report.duration_s (the report
+ * is empty until the result arrives), so the NVS layout does not change. Records
+ * written by older firmware have 0 there and are treated as 30 s. */
+static uint16_t record_duration_s(void) {
+    return s_record.report.duration_s ? s_record.report.duration_s : APP_REMOTE_TEST_MIN_S;
+}
+static int64_t record_busy_ms(void) {
+    return (int64_t)(record_duration_s() + APP_REMOTE_TEST_MARGIN_S) * 1000;
+}
 typedef struct {
     bool report;
     char payload[RX_MAX + 1];
@@ -160,7 +170,8 @@ static void command(const char *payload) {
                  uuid(id->valuestring) && cJSON_IsString(device) &&
                  strlen(device->valuestring) == 8 && number(j, "test_id", &test_id) &&
                  test_id >= 32768 && test_id <= 65535 && number(j, "duration_s", &duration) &&
-                 duration == 30 && number(j, "issued_at_ms", &issued) && issued > 0 &&
+                 duration == floor(duration) && duration >= APP_REMOTE_TEST_MIN_S &&
+                 duration <= APP_REMOTE_TEST_MAX_S && number(j, "issued_at_ms", &issued) && issued > 0 &&
                  issued < 9007199254740991.0 && number(j, "expires_at_ms", &expires) &&
                  expires > issued && expires - issued <= 31000;
     if (valid)
@@ -212,7 +223,7 @@ static void command(const char *payload) {
         return;
     }
     s_highwater = (int64_t)issued;
-    if (s_record.state && s_record.issued_ms + 180000 > now &&
+    if (s_record.state && s_record.issued_ms + record_busy_ms() > now &&
         (s_record.state == 1 || s_record.state == 2)) {
         ack(cid, did, (int)test_id, "rejected", "Otra prueba remota pendiente en este gateway");
         cJSON_Delete(j);
@@ -225,6 +236,7 @@ static void command(const char *payload) {
     s_record.device = node;
     s_record.test_id = (uint16_t)test_id;
     s_record.issued_ms = (int64_t)issued;
+    s_record.report.duration_s = (uint16_t)duration;
     s_record.state = 1;
     // Persist BEFORE sending. After a crash the order is uncertain, never replayed.
     if (!store_record()) {
@@ -233,7 +245,7 @@ static void command(const char *payload) {
         cJSON_Delete(j);
         return;
     }
-    esp_err_t err = zigbee_gateway_start_remote_test(node, (uint16_t)test_id);
+    esp_err_t err = zigbee_gateway_start_remote_test(node, (uint16_t)test_id, (uint16_t)duration);
     s_record.state = err == ESP_OK ? 2 : 3;
     // If this commit fails, keep state=1 on disk so reboot stays fail-closed.
     (void)store_record();
@@ -291,7 +303,7 @@ esp_err_t remote_test_init(esp_mqtt_client_handle_t client, const char *boot) {
         nvs_close(nvs);
     }
     if (s_record.state == 1 || s_record.state == 2)
-        (void)test_campaign_reserve_remote(180);
+        (void)test_campaign_reserve_remote(record_duration_s() + APP_REMOTE_TEST_MARGIN_S);
     s_jobs = xQueueCreate(8, sizeof(job_t));
     if (!s_jobs)
         return ESP_ERR_NO_MEM;

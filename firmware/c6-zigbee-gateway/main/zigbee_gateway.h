@@ -19,4 +19,4 @@ esp_err_t zigbee_gateway_repeat_stop(void);
 esp_err_t zigbee_gateway_repeat_status(char *buffer, size_t capacity);
 uint8_t zigbee_gateway_send_schedule(uint16_t short_addr, const battery_test_schedule_t *schedule);
 
-esp_err_t zigbee_gateway_start_remote_test(uint32_t device_id, uint16_t test_id);
+esp_err_t zigbee_gateway_start_remote_test(uint32_t device_id, uint16_t test_id, uint16_t duration_s);

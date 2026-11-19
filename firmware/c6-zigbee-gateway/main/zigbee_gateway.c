@@ -302,19 +302,20 @@ esp_err_t zigbee_gateway_start_manual_test(uint32_t device_id)
     return ESP_OK;
 }
 
-esp_err_t zigbee_gateway_start_remote_test(uint32_t device_id, uint16_t test_id)
+esp_err_t zigbee_gateway_start_remote_test(uint32_t device_id, uint16_t test_id, uint16_t duration_s)
 {
     if (!s_ready || test_id < 32768) return ESP_ERR_INVALID_STATE;
+    if (duration_s < APP_REMOTE_TEST_MIN_S || duration_s > APP_REMOTE_TEST_MAX_S) return ESP_ERR_INVALID_ARG;
     if (!esp_zb_lock_acquire(pdMS_TO_TICKS(250))) return ESP_ERR_TIMEOUT;
     uint16_t addr;
     if (s_repeat.target || !node_registry_find_recent(device_id, &addr) || addr == 0 || addr >= 0xfff8) {
         esp_zb_lock_release(); return ESP_ERR_INVALID_STATE;
     }
-    if (!test_campaign_reserve_remote(180)) { esp_zb_lock_release(); return ESP_ERR_INVALID_STATE; }
-    const battery_test_schedule_t schedule = {.version=EMERGENCY_TEST_PROTOCOL_VERSION,.test_id=test_id,.start_delay_s=0,.duration_s=30};
+    if (!test_campaign_reserve_remote(duration_s + APP_REMOTE_TEST_MARGIN_S)) { esp_zb_lock_release(); return ESP_ERR_INVALID_STATE; }
+    const battery_test_schedule_t schedule = {.version=EMERGENCY_TEST_PROTOCOL_VERSION,.test_id=test_id,.start_delay_s=0,.duration_s=duration_s};
     (void)send_test_command_locked(addr,EMERGENCY_CMD_SCHEDULE_TEST,&schedule,sizeof(schedule));
     esp_zb_lock_release();
-    ESP_LOGI(TAG,"REMOTE_TEST sent node=%08" PRIx32 " test=%u duration=30s",device_id,test_id);
+    ESP_LOGI(TAG,"REMOTE_TEST sent node=%08" PRIx32 " test=%u duration=%us",device_id,test_id,duration_s);
     return ESP_OK;
 }
 

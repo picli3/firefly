@@ -52,10 +52,12 @@ typedef struct {
 
 static void publish_status(void)
 {
-    char payload[280];
+    char payload[320];
+    // test_max_duration_s tells the web which remote test durations this firmware accepts.
     snprintf(payload, sizeof(payload),
-             "{\"schema_version\":1,\"message_id\":\"%s-status-%u\",\"online\":true,\"boot_id\":\"%s\",\"test_capable\":%s}",
-             s_gateway_boot, atomic_fetch_add(&s_message_sequence, 1), s_gateway_boot, remote_test_ready() ? "true" : "false");
+             "{\"schema_version\":1,\"message_id\":\"%s-status-%u\",\"online\":true,\"boot_id\":\"%s\",\"test_capable\":%s,\"test_max_duration_s\":%d}",
+             s_gateway_boot, atomic_fetch_add(&s_message_sequence, 1), s_gateway_boot, remote_test_ready() ? "true" : "false",
+             APP_REMOTE_TEST_MAX_S);
     if (esp_mqtt_client_enqueue(s_mqtt, s_status_topic, payload, 0, 1, 1, true) < 0) {
         ESP_LOGW(TAG, "MQTT heartbeat could not be queued");
     }
