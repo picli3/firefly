@@ -143,6 +143,14 @@ git archive --format=tar --prefix=app/ HEAD:firefly-web \
 
 `git archive` incluye solo los archivos versionados, así que no copia `node_modules`, `.env`, respaldos ni certificados locales. El `chown` es opcional: usa el usuario normal del servidor (en la Orange Pi, `orangepi`).
 
+> **Git LFS:** `git archive` copia los archivos guardados en LFS como **punteros** de texto de unos 130 bytes, no como el archivo real. Hoy la aplicación no necesita ninguno para funcionar: dentro de `firefly-web` solo está en LFS `plan/Plantilla de Reporte Mensual - Firefly.pdf`, que es documentación. Antes de desplegar, comprueba que esta orden no muestre nada fuera de `plan/`:
+>
+> ```sh
+> git lfs ls-files -n | grep '^firefly-web/' | grep -v '^firefly-web/plan/'
+> ```
+>
+> Si algún día la aplicación usa un archivo en LFS, copia la carpeta desde una copia de trabajo con `rsync` en lugar de `git archive`, o saca ese tipo de archivo de LFS para `firefly-web` en `.gitattributes`.
+
 ## 5. Configurar las variables de entorno
 
 Crea `config/firefly.env` a partir de la plantilla y enlázalo desde `app/`:

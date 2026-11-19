@@ -15,9 +15,15 @@ emergency-light-pcb/v*
 *.blend
 *.blend1
 *.glb
-/assets/materials/
+*/assets/materials/
 *.step
 *FCBak
 *.bin
 *.gltf
 graphify-out/
+firefly-web/plan/
+doc/csv/
+doc/pdf/
+emergency-light-pcb/docs/assets/
+*.stp
+*.stl
