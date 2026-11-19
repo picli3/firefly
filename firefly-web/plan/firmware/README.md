@@ -5,6 +5,8 @@ La web registra aquí los requisitos que necesitan implementación en ESP32-C6 o
 | ID | Tarea | Estado | Responsable |
 | --- | --- | --- | --- |
 | [FW-001](FW-001-configuracion-bateria-h2-c6.md) | Configurar umbrales de batería en H2 mediante C6 y confirmar aplicación | Implementada y validada en 4 V; pendientes físicos documentados | Chat de firmware H2/C6 |
+| [FW-002](FW-002-migracion-broker-orangepi.md) | Cambiar la conexión del C6 al broker de la Orange Pi | Pendiente de reconfigurar el C6 | Chat de firmware C6 |
+| [FW-003](FW-003-duracion-variable-pruebas-c6.md) | Pruebas remotas de 30–300 s en el C6 para la planificación de pruebas | Implementada, probada en host y compilada; pendiente carga y verificación física | Chat de firmware C6 |
 
 ## Procedimiento
 

@@ -2,7 +2,7 @@ import { db } from "./db.mjs";
 import { lampState, gatewayState } from "./domain.mjs";
 export async function lamps() {
   return (
-    await db`SELECT l.*,g.name gateway_name,g.test_capable gateway_test_capable,(g.online AND g.active) gateway_online,g.last_seen gateway_last_seen,g.report_interval_s gateway_interval,loc.name level,b.name building,s.name site,loc.id level_id,b.id building_id,s.id site_id FROM lamps l JOIN gateways g ON g.id=l.gateway_id LEFT JOIN locations loc ON loc.id=l.location_id LEFT JOIN locations b ON b.id=loc.parent_id LEFT JOIN locations s ON s.id=b.parent_id WHERE l.deleted_at IS NULL AND g.deleted_at IS NULL ORDER BY l.name NULLS FIRST,l.device_id`
+    await db`SELECT l.*,g.name gateway_name,g.test_capable gateway_test_capable,g.test_max_duration_s gateway_test_max_duration_s,ts.enabled schedule_enabled,ts.days schedule_days,to_char(ts.time_local,'HH24:MI') schedule_time,ts.duration_s schedule_duration_s,ts.timezone schedule_timezone,(g.online AND g.active) gateway_online,g.last_seen gateway_last_seen,g.report_interval_s gateway_interval,loc.name level,b.name building,s.name site,loc.id level_id,b.id building_id,s.id site_id FROM lamps l JOIN gateways g ON g.id=l.gateway_id LEFT JOIN test_schedules ts ON ts.lamp_id=l.id LEFT JOIN locations loc ON loc.id=l.location_id LEFT JOIN locations b ON b.id=loc.parent_id LEFT JOIN locations s ON s.id=b.parent_id WHERE l.deleted_at IS NULL AND g.deleted_at IS NULL ORDER BY l.name NULLS FIRST,l.device_id`
   ).map((l) => lampState(l));
 }
 export async function gateways() {
@@ -25,6 +25,7 @@ export function filterLamps(rows, f = {}) {
           testing: l.testing,
           battery: !l.ac && !!l.latest,
           pending: l.pending_assignment,
+          scheduled: !!l.schedule_enabled,
         }[f.state]),
   );
 }

@@ -38,6 +38,7 @@ const states = computed(() => [
         { value: "online", label: "En línea" },
         { value: "offline", label: "Sin comunicación" },
         { value: "pending", label: "Por asignar" },
+        { value: "scheduled", label: "Con pruebas programadas" },
       ]),
 ]);
 </script>

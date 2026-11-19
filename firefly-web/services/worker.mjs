@@ -1,5 +1,6 @@
 import mqtt from "mqtt";
 import { dispatchTests } from "./lib/individual-tests.mjs";
+import { runSchedules } from "./lib/schedules.mjs";
 import { writeFile, readFile, rename, mkdir, chown } from "node:fs/promises";
 import { db } from "./lib/db.mjs";
 import { ingest, dispatchCommands } from "./lib/ingest.mjs";
@@ -93,6 +94,8 @@ const timer = setInterval(async () => {
     await provision();
     if (client.connected) {
       await dispatchCommands(client);
+      // Primero se crean las solicitudes programadas y luego se publican.
+      await runSchedules();
       await dispatchTests(client);
     }
   } catch (e) {

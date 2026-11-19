@@ -1,4 +1,12 @@
 <script setup lang="ts">
+import {
+  WEEKDAYS,
+  TEST_DURATIONS,
+  SCHEDULE_WINDOW_MIN,
+  nextRun,
+  daysText,
+  durationText,
+} from "#shared/schedule.mjs";
 const route = useRoute(),
   router = useRouter(),
   toast = useToast(),
@@ -8,6 +16,7 @@ const route = useRoute(),
 const tabs = [
   { label: "Resumen", value: "resumen", icon: "i-lucide-activity" },
   { label: "Pruebas", value: "pruebas", icon: "i-lucide-flask-conical" },
+  { label: "Planificación", value: "planificacion", icon: "i-lucide-calendar-clock" },
   { label: "Configuración", value: "configuracion", icon: "i-lucide-sliders-horizontal" },
 ];
 const tab = computed({
@@ -250,6 +259,111 @@ const profileUnconfirmed = computed(
     !activeProfile.value ||
     activeProfile.value.profile_nominal_mv !== data.value?.lamp.nominal_mv,
 );
+// --- Planificación de pruebas ---
+const maxDuration = computed(() => data.value?.lamp.gateway_test_max_duration_s ?? 30);
+const durationItems = computed(() =>
+  TEST_DURATIONS.map((d) => ({
+    value: String(d),
+    label:
+      durationText(d) + (d > maxDuration.value ? " · requiere C6 actualizado" : ""),
+    disabled: d > maxDuration.value,
+  })),
+);
+const dayPresets = [
+  { label: "Lunes a viernes", days: [1, 2, 3, 4, 5] },
+  { label: "Todos los días", days: [1, 2, 3, 4, 5, 6, 7] },
+  { label: "Solo lunes", days: [1] },
+];
+const plan = reactive({ enabled: true, days: [] as number[], time: "08:00", duration: "30" });
+function loadPlan() {
+  const sc = data.value?.schedule;
+  Object.assign(plan, {
+    enabled: sc ? sc.enabled : true,
+    days: sc ? [...sc.days] : [1, 2, 3, 4, 5],
+    time: sc?.time || "08:00",
+    duration: String(sc?.duration_s || 30),
+  });
+}
+// Se carga al abrir la ficha y tras guardar; la actualización periódica no pisa la edición.
+watch(() => data.value?.lamp.id, loadPlan, { immediate: true });
+const scheduleDirty = computed(() => {
+  const sc = data.value?.schedule;
+  if (!sc) return true;
+  return (
+    sc.enabled !== plan.enabled ||
+    sc.time !== plan.time ||
+    sc.duration_s !== Number(plan.duration) ||
+    [...sc.days].sort().join() !== [...plan.days].sort().join()
+  );
+});
+function toggleDay(d: number) {
+  plan.days = plan.days.includes(d)
+    ? plan.days.filter((x) => x !== d)
+    : [...plan.days, d].sort();
+}
+// Próxima prueba: la de hoy solo mientras siga pendiente dentro de su ventana;
+// si esa ocurrencia ya se solicitó u omitió, se muestra la siguiente.
+const scheduleNext = computed(() => {
+  const sc = data.value?.schedule;
+  if (!sc) return null;
+  const candidate = nextRun({ ...sc }, new Date(), SCHEDULE_WINDOW_MIN);
+  const done = data.value?.schedule_runs?.some(
+    (r: any) =>
+      candidate &&
+      new Date(r.slot).getTime() === candidate.getTime() &&
+      r.status !== "waiting",
+  );
+  return done ? nextRun({ ...sc }, new Date(), 0) : candidate;
+});
+async function saveSchedule() {
+  busy.value = true;
+  try {
+    await $fetch(`/api/lamps/${route.params.id}/schedule`, {
+      method: "PUT",
+      body: {
+        enabled: plan.enabled,
+        days: plan.days,
+        time: plan.time,
+        duration_s: Number(plan.duration),
+      },
+    });
+    await refresh();
+    loadPlan();
+    ok(
+      "Planificación guardada",
+      plan.enabled ? `Próxima prueba: ${dateText(scheduleNext.value)}` : "Planificación en pausa",
+    );
+  } catch (e) {
+    fail(e);
+  } finally {
+    busy.value = false;
+  }
+}
+const confirmDeleteSchedule = ref(false);
+async function deleteSchedule() {
+  busy.value = true;
+  try {
+    await $fetch(`/api/lamps/${route.params.id}/schedule`, { method: "DELETE" });
+    confirmDeleteSchedule.value = false;
+    await refresh();
+    loadPlan();
+    ok("Planificación eliminada");
+  } catch (e) {
+    fail(e);
+  } finally {
+    busy.value = false;
+  }
+}
+function runLabel(r: any) {
+  if (r.status === "waiting") return "Esperando · reintentando";
+  if (r.status === "skipped") return "Omitida";
+  return testState[r.request_status] || "Solicitada";
+}
+function runColor(r: any): BadgeColor {
+  if (r.status === "waiting") return "info";
+  if (r.status === "skipped") return "warning";
+  return testColor[r.request_status] || "info";
+}
 </script>
 <template>
   <section v-if="data">
@@ -503,6 +617,211 @@ const profileUnconfirmed = computed(
           </table>
         </div>
       </section>
+    </template>
+
+    <!-- PLANIFICACIÓN -->
+    <template v-else-if="tab === 'planificacion'">
+      <div class="grid-2 schedule-grid">
+        <form class="panel form-panel" @submit.prevent="saveSchedule">
+          <div class="schedule-head">
+            <h2>Planificación de pruebas</h2>
+            <USwitch
+              v-model="plan.enabled"
+              :disabled="!admin"
+              :label="plan.enabled ? 'Activa' : 'Pausada'"
+            />
+          </div>
+          <fieldset class="schedule-days" :disabled="!admin">
+            <legend>Días de la semana</legend>
+            <div class="day-toggles">
+              <UButton
+                v-for="d in WEEKDAYS"
+                :key="d.value"
+                type="button"
+                :label="d.short"
+                :title="d.label"
+                :aria-label="d.label"
+                :aria-pressed="plan.days.includes(d.value)"
+                :color="plan.days.includes(d.value) ? 'primary' : 'neutral'"
+                :variant="plan.days.includes(d.value) ? 'solid' : 'outline'"
+                class="day-toggle"
+                @click="toggleDay(d.value)"
+              />
+            </div>
+            <div class="day-presets">
+              <UButton
+                v-for="p in dayPresets"
+                :key="p.label"
+                type="button"
+                size="xs"
+                color="neutral"
+                variant="ghost"
+                :label="p.label"
+                @click="plan.days = [...p.days]"
+              />
+            </div>
+          </fieldset>
+          <div class="form-row">
+            <label
+              >Hora (America/Lima)<UInput
+                v-model="plan.time"
+                type="time"
+                required
+                :disabled="!admin"
+                icon="i-lucide-clock"
+            /></label>
+            <label
+              >Duración de la prueba<FfSelect
+                v-model="plan.duration"
+                :items="durationItems"
+                :disabled="!admin"
+            /></label>
+          </div>
+          <UAlert
+            v-if="maxDuration < 300"
+            color="info"
+            variant="subtle"
+            icon="i-lucide-info"
+            :description="`El firmware actual del gateway admite pruebas de hasta ${durationText(maxDuration)}. Las duraciones mayores se habilitan al actualizar el C6.`"
+          />
+          <p class="muted small">
+            A la hora indicada se solicita la prueba como si se pulsara «Ejecutar
+            prueba». Si la lámpara o el gateway no están listos, se reintenta
+            durante {{ SCHEDULE_WINDOW_MIN }} minutos; después se registra como
+            omitida con su motivo.
+          </p>
+          <div v-if="admin" class="form-actions">
+            <UButton
+              type="submit"
+              icon="i-lucide-calendar-check"
+              :loading="busy"
+              :disabled="busy || !plan.days.length || !scheduleDirty"
+              :label="data.schedule ? 'Guardar cambios' : 'Crear planificación'"
+            />
+            <UButton
+              v-if="data.schedule"
+              type="button"
+              color="error"
+              variant="ghost"
+              icon="i-lucide-trash-2"
+              label="Eliminar"
+              :disabled="busy"
+              @click="confirmDeleteSchedule = true"
+            />
+          </div>
+        </form>
+        <section class="panel form-panel schedule-summary">
+          <h2>Resumen</h2>
+          <template v-if="data.schedule">
+            <div class="summary-row">
+              <UIcon name="i-lucide-calendar-days" />
+              <div>
+                <strong>{{ daysText(data.schedule.days) }}</strong>
+                <small class="muted"
+                  >a las {{ data.schedule.time }} ·
+                  {{ durationText(data.schedule.duration_s) }}</small
+                >
+              </div>
+            </div>
+            <div class="summary-row">
+              <UIcon name="i-lucide-alarm-clock" />
+              <div>
+                <strong>{{
+                  data.schedule.enabled
+                    ? scheduleNext
+                      ? dateText(scheduleNext)
+                      : "—"
+                    : "Pausada"
+                }}</strong>
+                <small class="muted">Próxima prueba</small>
+              </div>
+            </div>
+            <UAlert
+              v-if="data.schedule.enabled && testBlocked"
+              color="warning"
+              variant="subtle"
+              icon="i-lucide-triangle-alert"
+              title="Ahora no se podría ejecutar"
+              :description="testBlocked"
+            />
+          </template>
+          <div v-else class="empty compact">
+            <UIcon name="i-lucide-calendar-x" class="empty-icon" />
+            <strong>Sin planificación</strong>
+            <p>
+              {{
+                admin
+                  ? "Elige los días, la hora y la duración, y guarda."
+                  : "Un administrador puede programar pruebas para esta lámpara."
+              }}
+            </p>
+          </div>
+        </section>
+      </div>
+      <section class="panel">
+        <div class="panel-heading"><h2>Ejecuciones programadas</h2></div>
+        <div class="table-scroll">
+          <table>
+            <thead>
+              <tr>
+                <th>Programada para</th>
+                <th>Estado</th>
+                <th>Resultado</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr v-for="r in data.schedule_runs" :key="r.slot">
+                <td>
+                  {{ dateText(r.slot) }}<small>{{ durationText(r.duration_s) }}</small>
+                </td>
+                <td>
+                  <UBadge
+                    :color="runColor(r)"
+                    variant="subtle"
+                    :label="runLabel(r)"
+                  /><small v-if="r.reason">{{ r.reason }}</small
+                  ><small v-else-if="r.attempts > 1">{{ r.attempts }} intentos</small>
+                </td>
+                <td>
+                  <UBadge
+                    v-if="r.result"
+                    :color="r.result === 'PASS' ? 'success' : 'error'"
+                    variant="subtle"
+                    :label="r.result"
+                  />
+                  <span v-else class="muted">—</span>
+                </td>
+              </tr>
+              <tr v-if="!data.schedule_runs?.length">
+                <td colspan="3" class="empty">Aún no hay ejecuciones programadas</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+      <UModal
+        v-model:open="confirmDeleteSchedule"
+        title="¿Eliminar la planificación?"
+        description="No se programarán más pruebas para esta lámpara. El historial de ejecuciones se conserva."
+      >
+        <template #footer>
+          <div class="modal-actions">
+            <UButton
+              color="neutral"
+              variant="outline"
+              label="Cancelar"
+              @click="confirmDeleteSchedule = false"
+            />
+            <UButton
+              color="error"
+              icon="i-lucide-trash-2"
+              label="Eliminar"
+              :loading="busy"
+              @click="deleteSchedule"
+            />
+          </div>
+        </template>
+      </UModal>
     </template>
 
     <!-- CONFIGURACIÓN -->

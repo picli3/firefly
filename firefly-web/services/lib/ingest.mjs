@@ -34,7 +34,7 @@ export async function ingest(topic, raw) {
       await sql`INSERT INTO messages(gateway_id,message_id) VALUES(${gateway},${data.message_id}) ON CONFLICT DO NOTHING RETURNING message_id`;
     if (!inserted.length) return { duplicate: true };
     if (kind === "status") {
-      await sql`UPDATE gateways SET online=${data.online},test_capable=${!!data.online && !!data.test_capable},last_seen=now(),boot_id=${data.boot_id} WHERE id=${gateway}`;
+      await sql`UPDATE gateways SET online=${data.online},test_capable=${!!data.online && !!data.test_capable},test_max_duration_s=${data.test_max_duration_s ?? 30},last_seen=now(),boot_id=${data.boot_id} WHERE id=${gateway}`;
       return { accepted: true };
     }
     if (kind === "test-ack") return ingestTestAck(sql, gateway, data);
