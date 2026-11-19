@@ -1,4 +1,15 @@
 <script setup lang="ts">
+import { daysText, durationText, nextRun } from "#shared/schedule.mjs";
+// Texto del indicador de pruebas programadas de una lámpara.
+function scheduleText(l: any) {
+  const base = `${daysText(l.schedule_days)} a las ${l.schedule_time} · ${durationText(l.schedule_duration_s)}`;
+  const next = nextRun(
+    { days: l.schedule_days, time: l.schedule_time, timezone: l.schedule_timezone },
+    new Date(),
+    0,
+  );
+  return next ? `Pruebas programadas: ${base}. Próxima: ${dateText(next)}` : `Pruebas programadas: ${base}`;
+}
 const fetcher = useRequestFetch();
 const { data: rows, refresh } = await useAsyncData<any[]>("lamps", () =>
   fetcher("/api/lamps"),
@@ -37,6 +48,7 @@ const filtered = computed(() =>
             testing: l.testing,
             offline: !l.connected,
             online: l.connected,
+            scheduled: !!l.schedule_enabled,
             pending: l.pending_assignment,
           } as any
         )[filters.state]),
@@ -216,8 +228,15 @@ onBeforeUnmount(() => events?.close());
               @click="navigateTo('/lamparas/' + l.id)"
             >
               <td>
-                <strong>{{ l.name || "Sin asignar" }}</strong><small
-                  class="mono"
+                <div class="lamp-name">
+                  <strong>{{ l.name || "Sin asignar" }}</strong>
+                  <UTooltip v-if="l.schedule_enabled" :text="scheduleText(l)">
+                    <span class="schedule-chip" :aria-label="scheduleText(l)" role="img"
+                      ><UIcon name="i-lucide-calendar-clock"
+                    /></span>
+                  </UTooltip>
+                </div>
+                <small class="mono"
                   >{{ l.device_id }} · {{ l.gateway_name }}</small
                 >
               </td>
@@ -264,6 +283,11 @@ onBeforeUnmount(() => events?.close());
               <strong>{{ l.name || "Sin asignar" }}</strong>
               <UIcon name="i-lucide-chevron-right" />
             </div>
+            <small v-if="l.schedule_enabled" class="schedule-line"
+              ><UIcon name="i-lucide-calendar-clock" />{{
+                `${daysText(l.schedule_days)} · ${l.schedule_time} · ${durationText(l.schedule_duration_s)}`
+              }}</small
+            >
             <small class="muted"
               >{{ l.level || "Sin nivel" }} ·
               {{ l.place || l.building || "Ubicación pendiente" }}</small

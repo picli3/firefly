@@ -260,3 +260,7 @@ La configuración de batería pendiente de E01–E03 se coordina mediante [FW-00
 ## Instalación en Orange Pi y NVMe
 
 Instalación web ARM64, directorios, copia inicial, arranque systemd y verificaciones registrados en [despliegue-orangepi.md](despliegue-orangepi.md). El cambio de conexión del C6 se asigna exclusivamente al chat de firmware mediante [FW-002](firmware/FW-002-migracion-broker-orangepi.md). No se detuvo ni sustituyó la instalación de la PC.
+
+### Planificación de pruebas por lámpara
+
+Pestaña «Planificación» en la ficha: días de la semana, hora (America/Lima) y duración de 30 s a 5 min. El worker solicita la prueba a la hora indicada por la misma ruta MQTT que el botón manual, reintenta durante 15 minutos y registra la ejecución como solicitada u omitida, con su motivo. La vista general muestra un indicador y permite filtrar por «Con pruebas programadas». Las duraciones mayores de 30 s requieren el C6 actualizado según [FW-003](firmware/FW-003-duracion-variable-pruebas-c6.md); hasta que el gateway anuncie `test_max_duration_s`, la web solo ofrece 30 s.

@@ -87,6 +87,8 @@ export const statusSchema = z
     message_id: z.string().min(1).max(128),
     online: z.boolean(),
     test_capable: z.boolean().optional(),
+    // Firmware C6 con pruebas de duración variable; ausente = 30 s.
+    test_max_duration_s: z.number().int().min(30).max(300).optional(),
     boot_id: z.string().min(1).max(128),
   })
   .strict();

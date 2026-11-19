@@ -27,3 +27,4 @@ Este chat desarrolla únicamente la web y registra las necesidades de C6/H2 en [
 
 - [Despliegue en Orange Pi con NVMe](despliegue-orangepi.md)
 - [FW-002 — Cambio del broker en el C6](firmware/FW-002-migracion-broker-orangepi.md)
+- [FW-003 — Pruebas de duración variable en el C6](firmware/FW-003-duracion-variable-pruebas-c6.md)

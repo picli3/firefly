@@ -37,6 +37,7 @@ import { trashList, changeTrash } from "./trash.mjs";
 import { requestTest } from "./individual-tests.mjs";
 import { parseDxf } from "./dxf.mjs";
 import { pdfReport } from "./report.mjs";
+import { TEST_DURATIONS } from "../../shared/schedule.mjs";
 // Chart time ranges: window length and aggregation bucket (seconds), ~240-360 points each.
 export const SERIES_RANGES = {
   "1h": { seconds: 3600, bucket: 15 },
@@ -497,6 +498,53 @@ export default defineEventHandler(async (event) => {
       }
       if (method === "GET" && !id)
         return filterLamps(await lamps(), getQuery(event));
+      if (id && action === "schedule") {
+        uuid.parse(id);
+        const lamp = (await lamps()).find((x) => x.id === id);
+        if (!lamp) fail(404, "Lámpara no encontrada");
+        if (method === "DELETE") {
+          await db.begin(async (sql) => {
+            await sql`DELETE FROM test_schedules WHERE lamp_id=${id}`;
+            await audit(sql, user, "lamp.schedule.delete", id);
+          });
+          return { deleted: true };
+        }
+        if (method === "PUT") {
+          const b = z
+            .object({
+              enabled: z.boolean(),
+              days: z
+                .array(z.number().int().min(1).max(7))
+                .min(1, "Selecciona al menos un día")
+                .max(7)
+                .transform((d) => [...new Set(d)].sort()),
+              time: z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/, "Hora inválida"),
+              duration_s: z
+                .number()
+                .int()
+                .refine((v) => TEST_DURATIONS.includes(v), "Duración no permitida"),
+            })
+            .strict()
+            .parse(await readBody(event));
+          const max = lamp.gateway_test_max_duration_s ?? 30;
+          if (b.duration_s > max)
+            fail(
+              409,
+              `El firmware del gateway admite pruebas de hasta ${max} s; actualízalo para usar ${b.duration_s} s`,
+            );
+          return db.begin(async (sql) => {
+            const [row] = await sql`
+              INSERT INTO test_schedules(lamp_id,enabled,days,time_local,duration_s,updated_by,updated_at)
+              VALUES(${id},${b.enabled},${b.days},${b.time},${b.duration_s},${user.id},now())
+              ON CONFLICT(lamp_id) DO UPDATE SET enabled=EXCLUDED.enabled,days=EXCLUDED.days,
+                time_local=EXCLUDED.time_local,duration_s=EXCLUDED.duration_s,
+                updated_by=EXCLUDED.updated_by,updated_at=now()
+              RETURNING *`;
+            await audit(sql, user, "lamp.schedule.save", id, b);
+            return row;
+          });
+        }
+      }
       if (method === "GET" && id && action === "series") {
         uuid.parse(id);
         if (!(await lamps()).some((x) => x.id === id))
@@ -534,7 +582,19 @@ export default defineEventHandler(async (event) => {
           await db`SELECT c.*,p.name profile_name,p.nominal_mv profile_nominal_mv,v.version profile_version FROM commands c JOIN profile_versions v ON v.id=c.profile_version_id JOIN profiles p ON p.id=v.profile_id WHERE lamp_id=${id} ORDER BY c.created_at DESC LIMIT 50`;
         const test_requests =
           await db`SELECT * FROM test_requests WHERE lamp_id=${id} ORDER BY created_at DESC LIMIT 30`;
-        return { lamp, measurements, tests, commands, test_requests };
+        const [schedule] =
+          await db`SELECT enabled,days,to_char(time_local,'HH24:MI') AS time,duration_s,timezone,updated_at FROM test_schedules WHERE lamp_id=${id}`;
+        const schedule_runs =
+          await db`SELECT r.slot,r.status,r.duration_s,r.reason,r.attempts,r.request_id,t.status request_status,t.result->>'result' result FROM test_schedule_runs r LEFT JOIN test_requests t ON t.id=r.request_id WHERE r.lamp_id=${id} ORDER BY r.slot DESC LIMIT 30`;
+        return {
+          lamp,
+          measurements,
+          tests,
+          commands,
+          test_requests,
+          schedule: schedule || null,
+          schedule_runs,
+        };
       }
       if (method === "POST" && !id) {
         const b = z

@@ -4,7 +4,15 @@ import { lamps } from "./queries.mjs";
 const fail = (message) => {
   throw createError({ statusCode: 409, statusMessage: message });
 };
-export async function requestTest(lampId, requestId, user) {
+// Margen tras la prueba para que el resultado llegue desde el H2 (igual que el C6).
+const RESULT_MARGIN_S = 150;
+/**
+ * Solicita una prueba de batería. `user` es null para pruebas programadas.
+ * @param {{durationS?: number, source?: "manual" | "schedule"}} [opts]
+ */
+export async function requestTest(lampId, requestId, user, opts = {}) {
+  const durationS = opts.durationS ?? 30,
+    source = opts.source ?? "manual";
   return db.begin(async (sql) => {
     const [lamp] =
       await sql`SELECT gateway_id FROM lamps WHERE id=${lampId} AND deleted_at IS NULL`;
@@ -32,6 +40,10 @@ export async function requestTest(lampId, requestId, user) {
     if (l.testing) fail("La lámpara ya está en prueba");
     if (!l.ac || !l.sensor_valid)
       fail("Se necesita alimentación AC y una lectura válida del sensor");
+    if (durationS > (l.gateway_test_max_duration_s ?? 30))
+      fail(
+        `El firmware del gateway admite pruebas de hasta ${l.gateway_test_max_duration_s ?? 30} s`,
+      );
     const [busy] =
       await sql`SELECT id FROM test_requests WHERE gateway_id=${lamp.gateway_id} AND (status IN ('pending','sent','accepted') OR (status='unknown' AND deadline_at>now()))`;
     if (busy)
@@ -45,11 +57,14 @@ export async function requestTest(lampId, requestId, user) {
         "Se agotaron los identificadores de pruebas de este gateway; se requiere una ampliación del protocolo",
       );
     const [row] =
-      await sql`INSERT INTO test_requests(id,lamp_id,gateway_id,requested_by,test_id) VALUES(${requestId},${lampId},${lamp.gateway_id},${user.id},${free.n}) RETURNING *`;
-    await audit(sql, user, "lamp.test.request", lampId, {
-      command_id: requestId,
-      duration_s: 30,
-    });
+      await sql`INSERT INTO test_requests(id,lamp_id,gateway_id,requested_by,test_id,duration_s,source,deadline_at) VALUES(${requestId},${lampId},${lamp.gateway_id},${user?.id || null},${free.n},${durationS},${source},clock_timestamp()+make_interval(secs => ${durationS + RESULT_MARGIN_S})) RETURNING *`;
+    await audit(
+      sql,
+      user,
+      source === "schedule" ? "lamp.test.schedule.run" : "lamp.test.request",
+      lampId,
+      { command_id: requestId, duration_s: durationS },
+    );
     return row;
   });
 }
@@ -71,7 +86,7 @@ export async function dispatchTests(client) {
           command_id: r.id,
           device_id: r.device_id,
           test_id: r.test_id,
-          duration_s: 30,
+          duration_s: r.duration_s,
           issued_at_ms: new Date(r.created_at).getTime(),
           expires_at_ms: new Date(r.expires_at).getTime(),
         }),
