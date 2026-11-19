@@ -27,3 +27,4 @@ doc/pdf/
 emergency-light-pcb/docs/assets/
 *.stp
 *.stl
+.obsidian/workspace.json
