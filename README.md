@@ -614,6 +614,12 @@ xAxis:
 
 ---
 
+## Licencia
+
+© 2026 Maykol Rey. Todos los derechos reservados. Proyecto **propietario**: el código, el firmware, los diseños de hardware y mecánicos, la documentación y la marca FireFly solo pueden consultarse y probarse con fines de evaluación técnica, sin uso comercial, redistribución ni fabricación. Condiciones completas en [LICENSE](LICENSE); componentes de terceros en [NOTICE.md](NOTICE.md).
+
+---
+
 ## 10. Tags y Links Internos (para Dataview)
 
 ```yaml

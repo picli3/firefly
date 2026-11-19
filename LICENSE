@@ -1,0 +1,184 @@
+FireFly — Licencia propietaria de evaluación
+Copyright (c) 2026 Maykol Rey. Todos los derechos reservados.
+
+(English version below. In case of discrepancy, the Spanish version prevails.)
+
+================================================================================
+VERSIÓN EN ESPAÑOL
+================================================================================
+
+1. TITULARIDAD
+
+Este repositorio y todo su contenido son propiedad exclusiva de Maykol Rey (en
+adelante, «el Titular»), salvo los componentes de terceros indicados en el
+archivo NOTICE.md. Esto incluye, sin limitarse a ello:
+
+  a) el software y el firmware (código fuente, binarios y scripts);
+  b) los diseños de hardware: esquemáticos, circuitos impresos (PCB), listas
+     de materiales y archivos de fabricación;
+  c) los diseños mecánicos y modelos 3D;
+  d) la documentación, los textos, los diagramas, las fotografías y las
+     imágenes;
+  e) el nombre «FireFly», su logotipo y demás signos distintivos.
+
+Ninguna disposición de esta licencia transfiere la propiedad de nada de lo
+anterior.
+
+2. PERMISO LIMITADO DE EVALUACIÓN
+
+El Titular concede a quien accede a este repositorio un permiso personal,
+gratuito, no exclusivo, intransferible y revocable para:
+
+  a) consultar y descargar el contenido; y
+  b) compilar, instalar y ejecutar el software y el firmware en equipos y
+     entornos de prueba propios,
+
+con el único fin de evaluar o validar técnicamente el proyecto, y sin ningún
+fin comercial.
+
+3. PROHIBICIONES
+
+Salvo autorización previa y por escrito del Titular, queda prohibido:
+
+  a) usar el contenido, total o parcialmente, con fines comerciales o en
+     instalaciones en producción;
+  b) copiar, publicar, redistribuir, vender, alquilar o sublicenciar el
+     contenido, ya sea modificado o sin modificar;
+  c) crear obras derivadas, salvo las modificaciones estrictamente necesarias
+     para la evaluación, que no podrán distribuirse;
+  d) fabricar, mandar fabricar o comercializar placas, dispositivos o
+     carcasas basados en los diseños de hardware o mecánicos;
+  e) usar el contenido para desarrollar un producto o servicio competidor;
+  f) usar el nombre «FireFly» o su logotipo, o presentar el trabajo como
+     propio;
+  g) eliminar o alterar los avisos de autoría, copyright o esta licencia.
+
+4. COMPONENTES DE TERCEROS
+
+Los componentes de terceros conservan sus propias licencias, indicadas en
+NOTICE.md. Esta licencia no limita los derechos que esas licencias otorgan
+sobre dichos componentes.
+
+5. DURACIÓN Y TERMINACIÓN
+
+El permiso de la cláusula 2 termina:
+
+  a) automáticamente si se incumple cualquier condición de esta licencia;
+  b) cuando el Titular lo comunique; o
+  c) cuando el Titular retire el acceso público al repositorio.
+
+Al terminar el permiso, deben eliminarse todas las copias del contenido. Las
+cláusulas 1, 3, 6 y 7 siguen vigentes después de la terminación.
+
+6. SIN GARANTÍA Y LIMITACIÓN DE RESPONSABILIDAD
+
+El contenido se entrega «TAL CUAL», sin garantías de ningún tipo, expresas o
+implícitas, incluidas las de comerciabilidad, idoneidad para un fin
+determinado y no infracción. El proyecto está en desarrollo y no cuenta con
+certificaciones de seguridad eléctrica, compatibilidad electromagnética ni de
+sistemas de iluminación de emergencia. No debe usarse como único medio para
+verificar instalaciones de emergencia.
+
+En ningún caso el Titular será responsable de daños directos, indirectos,
+incidentales o consecuentes derivados del uso o de la imposibilidad de uso del
+contenido.
+
+7. LEY APLICABLE
+
+Esta licencia se rige por las leyes de la República del Perú, en particular el
+Decreto Legislativo N.º 822, Ley sobre el Derecho de Autor.
+
+8. CONTACTO
+
+Para solicitar permisos distintos de los aquí concedidos (uso comercial,
+fabricación, distribución o colaboración), contacte al Titular a través de
+https://maykolrey.com.
+
+================================================================================
+ENGLISH VERSION
+================================================================================
+
+FireFly — Proprietary Evaluation License
+Copyright (c) 2026 Maykol Rey. All rights reserved.
+
+1. OWNERSHIP
+
+This repository and all of its contents are the exclusive property of Maykol
+Rey (the "Owner"), except for the third-party components listed in NOTICE.md.
+This includes, without limitation:
+
+  a) the software and firmware (source code, binaries and scripts);
+  b) the hardware designs: schematics, printed circuit boards (PCBs), bills
+     of materials and manufacturing files;
+  c) the mechanical designs and 3D models;
+  d) the documentation, texts, diagrams, photographs and images;
+  e) the name "FireFly", its logo and other distinctive signs.
+
+Nothing in this license transfers ownership of any of the above.
+
+2. LIMITED EVALUATION PERMISSION
+
+The Owner grants anyone accessing this repository a personal, free,
+non-exclusive, non-transferable and revocable permission to:
+
+  a) view and download the contents; and
+  b) build, install and run the software and firmware on their own equipment
+     and test environments,
+
+solely to evaluate or technically validate the project, and for no commercial
+purpose.
+
+3. RESTRICTIONS
+
+Unless the Owner has given prior written authorization, you may not:
+
+  a) use the contents, in whole or in part, for commercial purposes or in
+     production installations;
+  b) copy, publish, redistribute, sell, rent or sublicense the contents,
+     whether modified or unmodified;
+  c) create derivative works, except for modifications strictly necessary for
+     the evaluation, which may not be distributed;
+  d) manufacture, have manufactured or sell boards, devices or enclosures
+     based on the hardware or mechanical designs;
+  e) use the contents to develop a competing product or service;
+  f) use the name "FireFly" or its logo, or present the work as your own;
+  g) remove or alter authorship notices, copyright notices or this license.
+
+4. THIRD-PARTY COMPONENTS
+
+Third-party components keep their own licenses, listed in NOTICE.md. This
+license does not limit the rights those licenses grant over such components.
+
+5. TERM AND TERMINATION
+
+The permission in section 2 ends:
+
+  a) automatically if any condition of this license is breached;
+  b) when the Owner gives notice; or
+  c) when the Owner withdraws public access to the repository.
+
+When the permission ends, all copies of the contents must be deleted.
+Sections 1, 3, 6 and 7 survive termination.
+
+6. NO WARRANTY AND LIMITATION OF LIABILITY
+
+The contents are provided "AS IS", without warranties of any kind, express or
+implied, including merchantability, fitness for a particular purpose and
+non-infringement. The project is under development and holds no electrical
+safety, electromagnetic compatibility or emergency lighting certifications.
+It must not be used as the sole means of verifying emergency installations.
+
+In no event shall the Owner be liable for any direct, indirect, incidental or
+consequential damages arising from the use of, or inability to use, the
+contents.
+
+7. GOVERNING LAW
+
+This license is governed by the laws of the Republic of Peru, in particular
+Legislative Decree No. 822 (Copyright Law).
+
+8. CONTACT
+
+To request permissions beyond those granted here (commercial use,
+manufacturing, distribution or collaboration), contact the Owner at
+https://maykolrey.com.
