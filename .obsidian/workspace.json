@@ -4,21 +4,21 @@
     "type": "split",
     "children": [
       {
-        "id": "2b7fc34a5177f973",
+        "id": "45469c1132749a97",
         "type": "tabs",
         "children": [
           {
-            "id": "3a8d49ee3e345fc0",
+            "id": "46ab8b08fd316d3e",
             "type": "leaf",
             "state": {
               "type": "markdown",
               "state": {
-                "file": "firefly-web/plan/tareas.md",
+                "file": "doc/FireFly-manual-despliegue-servidor.md",
                 "mode": "source",
                 "source": false
               },
               "icon": "lucide-file",
-              "title": "tareas"
+              "title": "FireFly-manual-despliegue-servidor"
             }
           }
         ]
@@ -83,7 +83,7 @@
       }
     ],
     "direction": "horizontal",
-    "width": 300
+    "width": 371.5
   },
   "right": {
     "id": "4a27f55fc119fe4b",
@@ -99,7 +99,7 @@
             "state": {
               "type": "backlink",
               "state": {
-                "file": "firmware/README.md",
+                "file": "doc/FireFly-presentacion-solucion.md",
                 "collapseAll": false,
                 "extraContext": false,
                 "sortOrder": "alphabetical",
@@ -188,20 +188,37 @@
       "bases:Crear nueva base": false
     }
   },
-  "active": "8afbadea03cbd598",
+  "active": "46ab8b08fd316d3e",
   "lastOpenFiles": [
-    "graphify-out/cost.json",
-    "graphify-out/manifest.json",
-    "graphify-out/graph.html",
+    "emergency-light-gateway-pcb/doc/c6-gateway.blend@",
+    "emergency-light-gateway-pcb/doc/gw_box_2.png",
+    "doc/firefly-articulo.md",
+    "doc/plantillas/Portada.md",
+    "doc/plantillas/Indice.md",
+    "doc/FireFly-presentacion-solucion.md",
+    "doc/FireFly-manual-despliegue-servidor.md",
+    "doc/svg/arquitectura-solucion.svg",
+    "doc/img/soporte-freecad.png",
+    "doc/img/gw_box.png",
+    "doc/img/gateway-reverso.png",
+    "doc/img/gateway-frente.png",
+    "doc/img/firefly/soporte-freecad.png",
+    "doc/img/firefly/gw_box.png",
+    "doc/img/firefly/gateway-reverso.png",
+    "doc/img/firefly/gateway-frente.png",
+    "doc/img/firefly",
+    "doc/csv/precios-gateway-referencia.csv",
+    "doc/csv/ensayo-c6-arranque-25.csv",
+    "doc/csv/bom-luminaria-v1.0.0.csv",
+    "doc/csv/bom-gateway-v1.0.0.csv",
+    "doc/csv",
+    "doc/Carpeta sin título",
+    "doc/img/presentacion/FireFly-presentacion-solucion.pdf",
+    "doc/img/presentacion",
+    "doc/pdf/FireFly-manual-despliegue-servidor.pdf",
+    "firefly-web/plan/tareas.md",
+    "graphify-out/2026-11-18/GRAPH_REPORT.md",
     "graphify-out/GRAPH_REPORT.md",
-    "graphify-out/graph.json",
-    "graphify-out/cache/semantic/8edb98c9c30245cc75dd20438de4d4ab80ac423c2ff0b3bfafc294dc72410c93.json",
-    "graphify-out/cache/semantic/fb67186cfbcf21f6e96e8e229c3e7532f292bbc1b3c0047697e85a5746d13e78.json",
-    "graphify-out/cache/semantic/59f3bfb47f47ef800a045a5876d85dd63a505a94ac2fb2403905e17b72ae9501.json",
-    "graphify-out/cache/semantic/d9455e4d8ae29015f24558fec0b076137b2e3fd0ea7c1e68ceaedda3da5cf53a.json",
-    "graphify-out/cache/semantic/4f46d18630ad0dc3515e04f185f4fcdf02463ffebc6172e97b1f23d83ad1f523.json",
-    "graphify-out/cache/semantic/62a94c23f0030b7aec34fea2d5932bd735ba0f7d074ccd3f563ddf14a754cd9c.json",
-    "graphify-out/cache/semantic/5fa2775d524db645fad9391102ffdb3054f0b1bded866572430109bb887ea640.json",
     "firefly-web/docker/orangepi/README.md",
     "firefly-web/plan/despliegue-orangepi.md",
     "firefly-web/plan/firmware/FW-002-migracion-broker-orangepi.md",
@@ -213,29 +230,12 @@
     "firmware/c6-zigbee-gateway/managed_components/espressif__enc28j60/CHANGELOG.md",
     "firefly-web/plan/planos-comunicacion.md",
     "firefly-web/plan/plantilla-reportes.md",
-    "firefly-web/public/branding/firefly.svg",
-    "firefly-web/services/assets/firefly.svg",
-    "firefly-web/node_modules/svg-to-pdfkit/notes/gradient-repeat-maths.png",
     "firefly-web/node_modules/svg-to-pdfkit/examples/README.md",
     "firefly-web/node_modules/svg-to-pdfkit/README.md",
     "firefly-web/node_modules/@tybys/wasm-util/README.md",
     "firefly-web/node_modules/@emnapi/core/README.md",
     "firefly-web/node_modules/@napi-rs/wasm-runtime/README.md",
     "firefly-web/node_modules/@emnapi/runtime/README.md",
-    "firefly-web/node_modules/@emnapi/wasi-threads/README.md",
-    "firefly-web/plan/registro-gateway.md",
-    "firefly-web/plan/verificacion.md",
-    "firefly-web/node_modules/prettier/THIRD-PARTY-NOTICES.md",
-    "firefly-web/node_modules/prettier/README.md",
-    "firefly-web/README.md",
-    "firefly-web/plan/firmware.md",
-    "doc/firefly.svg",
-    "doc/logo-firefly.png",
-    "emergency-light-gateway-pcb/doc/lampara_iot.png",
-    "emergency-light-gateway-pcb/doc/2026-11-10_15-50.jpg",
-    "emergency-light-gateway-pcb/doc/2026-11-10_15-49.jpg",
-    "doc/firefly/autoprueba.svg",
-    "doc/firefly/arquitectura.svg",
     "Sin título.canvas"
   ]
 }

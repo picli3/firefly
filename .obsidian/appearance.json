@@ -1,3 +1,8 @@
 {
-  "showRibbon": true
+  "showRibbon": true,
+  "enabledCssSnippets": [
+    "pie-de-pagina-pdf",
+    "portada-pdf"
+  ],
+  "accentColor": ""
 }

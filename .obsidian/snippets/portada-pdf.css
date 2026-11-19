@@ -1,0 +1,238 @@
+/*
+ * Portada para documentos exportados a PDF.
+ * Uso: un callout «portada» al inicio de la nota (plantilla doc/plantillas/Portada.md).
+ * En pantalla se ve como un bloque centrado; al exportar ocupa la primera página completa.
+ */
+.callout[data-callout="portada"] {
+  --callout-color: 22, 120, 92;
+  background: none;
+  border: none;
+  box-shadow: none;
+  padding: 3rem 1rem;
+  margin: 0 0 2rem;
+  text-align: center;
+  mix-blend-mode: normal;
+}
+
+.callout[data-callout="portada"] > .callout-title {
+  display: none;
+}
+
+.callout[data-callout="portada"] > .callout-content {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.35rem;
+  min-height: 60vh;
+}
+
+.callout[data-callout="portada"] > .callout-content > p {
+  margin: 0;
+}
+
+/* Logo */
+.callout[data-callout="portada"] img {
+  width: 190px;
+  max-width: 50%;
+  height: auto;
+  margin: 0 auto 2.5rem;
+}
+
+/* Título y subtítulo */
+.callout[data-callout="portada"] h1 {
+  font-size: 2.3em;
+  line-height: 1.2;
+  margin: 0 0 0.5rem;
+  color: #103e33;
+  border: none;
+}
+
+.callout[data-callout="portada"] h2 {
+  font-size: 1.25em;
+  font-weight: 500;
+  margin: 0;
+  color: #5f6e67;
+  border: none;
+}
+
+.theme-dark .callout[data-callout="portada"] h1 {
+  color: #c0eb75;
+}
+
+.theme-dark .callout[data-callout="portada"] h2 {
+  color: #b8d3c7;
+}
+
+/* Línea separadora */
+.callout[data-callout="portada"] hr {
+  width: 90px;
+  border: none;
+  border-top: 3px solid #16785c;
+  margin: 2.5rem auto 1.5rem;
+}
+
+/* Autor, año y versión */
+.callout[data-callout="portada"] hr ~ p {
+  font-size: 1.05em;
+  line-height: 1.8;
+  color: #243b34;
+}
+
+.theme-dark .callout[data-callout="portada"] hr ~ p {
+  color: #dce8e1;
+}
+
+/* En el PDF: la portada ocupa la primera página entera y el documento empieza en la siguiente. */
+@media print {
+  .callout[data-callout="portada"] {
+    margin: 0;
+    padding: 0;
+    break-after: page;
+    page-break-after: always;
+  }
+
+  .callout[data-callout="portada"] > .callout-content {
+    height: 225mm;
+    min-height: 0;
+  }
+
+  .callout[data-callout="portada"] h1 {
+    color: #103e33 !important;
+  }
+
+  .callout[data-callout="portada"] h2,
+  .callout[data-callout="portada"] hr ~ p {
+    color: #5f6e67 !important;
+  }
+}
+
+/* ===================== ÍNDICE ===================== */
+/*
+ * Índice para documentos exportados a PDF.
+ * Uso: un callout «indice» justo después de la portada, con el bloque del plugin
+ * «Automatic Table of Contents», que genera la lista a partir de los títulos:
+ *   > [!indice] Índice
+ *   > ```table-of-contents
+ *   > minLevel: 2
+ *   > maxLevel: 3
+ *   > ```
+ * En el PDF ocupa su propia página y el contenido empieza en la siguiente.
+ */
+.callout[data-callout="indice"] {
+  --callout-color: 22, 120, 92;
+  background: none !important;
+  background-color: transparent !important;
+  border: none !important;
+  box-shadow: none !important;
+  padding: 0;
+  margin: 0 0 2.5rem;
+  mix-blend-mode: normal;
+}
+
+.callout[data-callout="indice"] > .callout-title {
+  padding: 0 0 0.6rem;
+  margin-bottom: 1rem;
+  border-bottom: 3px solid #16785c;
+}
+
+.callout[data-callout="indice"] > .callout-title .callout-icon {
+  display: none;
+}
+
+.callout[data-callout="indice"] > .callout-title .callout-title-inner {
+  font-size: 1.7em;
+  font-weight: 700;
+  color: #103e33;
+}
+
+.theme-dark .callout[data-callout="indice"] > .callout-title .callout-title-inner {
+  color: #c0eb75;
+}
+
+.callout[data-callout="indice"] > .callout-content,
+.callout[data-callout="indice"] .block-language-table-of-contents,
+.callout[data-callout="indice"] .block-language-toc {
+  padding: 0;
+  margin: 0;
+  background: none !important;
+  background-color: transparent !important;
+  border: none !important;
+}
+
+.callout[data-callout="indice"] ul {
+  list-style: none;
+  margin: 0;
+  padding-left: 0;
+}
+
+/* Secciones principales */
+.callout[data-callout="indice"] li {
+  margin: 0.55rem 0 0;
+  font-weight: 600;
+}
+
+/* Subsecciones */
+.callout[data-callout="indice"] ul ul {
+  margin: 0.15rem 0 0.2rem;
+  padding-left: 1.6rem;
+}
+
+.callout[data-callout="indice"] ul ul li {
+  margin: 0.1rem 0;
+  font-weight: 400;
+  font-size: 0.94em;
+}
+
+.callout[data-callout="indice"] li::before,
+.callout[data-callout="indice"] li::marker,
+.callout[data-callout="indice"] .list-bullet {
+  display: none;
+  content: none;
+}
+
+.callout[data-callout="indice"] .list-collapse-indicator,
+.callout[data-callout="indice"] .cm-list-indent,
+.callout[data-callout="indice"] .list-vertical-indent {
+  display: none;
+  border: none;
+}
+
+.callout[data-callout="indice"] a.internal-link {
+  color: #243b34;
+  text-decoration: none;
+}
+
+.theme-dark .callout[data-callout="indice"] a.internal-link {
+  color: #dce8e1;
+}
+
+.callout[data-callout="indice"] ul ul a.internal-link {
+  color: #5f6e67;
+}
+
+@media print {
+  .callout[data-callout="indice"] {
+    margin: 0 !important;
+    padding-top: 10mm;
+    break-before: page !important;
+    page-break-before: always !important;
+    break-after: page !important;
+    page-break-after: always !important;
+    break-inside: auto !important;
+    page-break-inside: auto !important;
+    overflow: visible !important;
+  }
+
+  .callout[data-callout="indice"] > .callout-title .callout-title-inner {
+    color: #103e33 !important;
+  }
+
+  .callout[data-callout="indice"] a.internal-link {
+    color: #243b34 !important;
+  }
+
+  .callout[data-callout="indice"] ul ul a.internal-link {
+    color: #5f6e67 !important;
+  }
+}
