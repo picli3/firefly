@@ -9,7 +9,7 @@ const gateway_settings_t *gateway_settings_active(void) {
 }
 static record_t durable, staging;
 static int64_t durable_highwater, staging_highwater;
-static int starts, commits, fail_commit, queued;
+static int starts, commits, fail_commit, queued, last_duration;
 static esp_err_t send_result;
 static char last_json[1800];
 const char *esp_err_to_name(esp_err_t e) { return e ? "ESP_FAIL" : "ESP_OK"; }
@@ -99,8 +99,10 @@ esp_err_t nvs_commit(nvs_handle_t h) {
     return ESP_OK;
 }
 void nvs_close(nvs_handle_t h) { (void)h; }
-esp_err_t zigbee_gateway_start_remote_test(uint32_t device, uint16_t test_id) {
+esp_err_t zigbee_gateway_start_remote_test(uint32_t device, uint16_t test_id, uint16_t duration_s) {
     assert(durable.state == 1);
+    assert(durable.report.duration_s == duration_s);
+    last_duration = duration_s;
     assert(durable.device == device);
     assert(durable.test_id == test_id);
     assert(durable_highwater == durable.issued_ms);
@@ -124,12 +126,15 @@ static void reset(void) {
     send_result = ESP_OK;
     assert(remote_test_init((void *)1, "host-boot") == ESP_OK);
 }
-static void make(char *out, size_t n, int id, int64_t issued, int64_t expiry) {
+static void make_d(char *out, size_t n, int id, int64_t issued, int64_t expiry, const char *duration) {
     snprintf(out, n,
              "{\"schema_version\":1,\"command_id\":\"00000000-0000-4000-8000-%012d\",\"device_id\":"
-             "\"abcdef01\",\"test_id\":32768,\"duration_s\":30,\"issued_at_ms\":%" PRId64
+             "\"abcdef01\",\"test_id\":%d,\"duration_s\":%s,\"issued_at_ms\":%" PRId64
              ",\"expires_at_ms\":%" PRId64 "}",
-             id, issued, expiry);
+             id, 32768 + id, duration, issued, expiry);
+}
+static void make(char *out, size_t n, int id, int64_t issued, int64_t expiry) {
+    make_d(out, n, id, issued, expiry, "30");
 }
 static void status(const char *expected) {
     cJSON *j = cJSON_Parse(last_json);
@@ -245,6 +250,53 @@ int main(void) {
     result = cJSON_Parse(last_json);
     assert(!cJSON_GetObjectItem(result, "config_version"));
     cJSON_Delete(result);
-    puts("remote_test: persistence, replay, expiry, MQTT framing, v1 upgrade and result revision passed");
+    // Duration range: 30..300 s accepted and forwarded; anything else rejected unsent.
+    const char *ok_durations[] = {"30", "60", "300"};
+    for (int i = 0; i < 3; i++) {
+        reset();
+        make_d(b, sizeof(b), 10 + i, now - 1000, now + 29000, ok_durations[i]);
+        command(b);
+        assert(starts == 1);
+        assert(last_duration == atoi(ok_durations[i]));
+        status("accepted");
+    }
+    const char *bad_durations[] = {"29", "301", "45.5", "0", "-30"};
+    for (int i = 0; i < 5; i++) {
+        reset();
+        make_d(b, sizeof(b), 20 + i, now - 1000, now + 29000, bad_durations[i]);
+        last_json[0] = 0;
+        command(b);
+        assert(starts == 0);
+        assert(last_json[0] == 0); /* invalid commands are dropped without ack */
+    }
+    // Busy window follows the pending test duration (+150 s margin).
+    reset();
+    make_d(a, sizeof(a), 30, now - 1000, now + 29000, "300");
+    command(a);
+    assert(starts == 1);
+    s_record.issued_ms = now - 400000; /* 400 s ago: still inside 300+150 */
+    make(b, sizeof(b), 31, now - 500, now + 29000);
+    command(b);
+    assert(starts == 1);
+    status("rejected");
+    s_record.issued_ms = now - 460000; /* 460 s ago: window over */
+    make(b, sizeof(b), 32, now - 400, now + 29000);
+    command(b);
+    assert(starts == 2);
+    status("accepted");
+    // Records from older firmware (duration 0 in the pending report) keep the 180 s window.
+    reset();
+    command(a);
+    s_record.report.duration_s = 0;
+    s_record.issued_ms = now - 170000;
+    make(b, sizeof(b), 33, now - 300, now + 29000);
+    command(b);
+    assert(starts == 1);
+    status("rejected");
+    s_record.issued_ms = now - 190000;
+    make(b, sizeof(b), 34, now - 200, now + 29000);
+    command(b);
+    assert(starts == 2);
+    puts("remote_test: persistence, replay, expiry, MQTT framing, v1 upgrade, result revision and duration range passed");
     return 0;
 }
